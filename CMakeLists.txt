@@ -1,18 +1,20 @@
-# Works with 3.14 and tested through 3.27
-cmake_minimum_required(VERSION 3.14...3.27)
-cmake_policy(SET CMP0037 NEW)
+# Version adapted for OpenCV
+cmake_minimum_required(VERSION 3.9)
+
 
 # Project name and a few useful settings. Other commands can pick up the results
 project(
   LiveVideoProcessing
   VERSION 0.1
-  DESCRIPTION "A plateform to process video in real time"
+  DESCRIPTION "A project to display live video streaming while processing it"
   LANGUAGES CXX)
+
 
 # Only do these if this is the main project, and not if it is included through add_subdirectory
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Optionally set things like CMAKE_CXX_STANDARD, CMAKE_POSITION_INDEPENDENT_CODE here
+  set(CMAKE_CXX_STANDARD 11)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
   set(CMAKE_CXX_EXTENSIONS OFF)
@@ -33,6 +35,11 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   else()
     message(STATUS "Doxygen not found, not building docs")
   endif()
+
+  # Needed for OpenCV, might be elsewhere in project
+  find_package( OpenCV REQUIRED ) # locate OpenCV in system
+  include_directories( ${OpenCV_INCLUDE_DIRS} ) # provide library headers
+  MESSAGE(STATUS "OpenCV_LIBS: " ${OpenCV_LIBS} )  #display opencv libs found
 endif()
 
 # FetchContent added in CMake 3.11, downloads during the configure step
@@ -58,12 +65,9 @@ add_subdirectory(src)
 # The executable code is here
 add_subdirectory(apps)
 
-# For tests
-add_subdirectory(tests)
-
-# # Testing only available if this is the main app
-# # Emergency override MODERN_CMAKE_BUILD_TESTING provided as well
-# if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING)
-#    AND BUILD_TESTING)
-#   add_subdirectory(tests)
-# endif()
+# Testing only available if this is the main app
+# Emergency override MODERN_CMAKE_BUILD_TESTING provided as well
+if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING)
+   AND BUILD_TESTING)
+  add_subdirectory(tests)
+endif()

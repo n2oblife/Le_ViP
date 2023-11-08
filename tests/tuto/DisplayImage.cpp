@@ -1,6 +1,10 @@
 #include <stdio.h>
+#include <catch2/catch.hpp>
 #include <opencv2/opencv.hpp>
+#include <string>
+
 using namespace cv;
+
 int main(int argc, char** argv )
 {
     if ( argc != 2 )
@@ -19,4 +23,4 @@ int main(int argc, char** argv )
     imshow("Display Image", image);
     waitKey(0);
     return 0;
-}
+}// namespace cv
