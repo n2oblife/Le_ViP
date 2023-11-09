@@ -1,44 +1,33 @@
-This is an example project using CMake.
+# Live Video Processing (LeVIP)
 
-The requirements are:
+## Introduction
+This repository is the baseline of a C++ live video processing app. It uses [OpenCV](https://opencv.org/) to process images and works on both Windows and Linux.
 
-- CMake 3.11 or better; 3.14+ highly recommended.
-- A C++17 compatible compiler
-- The Boost libararies (header only part is fine)
-- Git
-- Doxygen (optional)
-
-To configure:
-
-```bash
-cmake -S . -B build
+## Installation
+### Cloning the project
+You can clone the projet directly from github by graphical interface or with CLI:
+```
+git clone https://github.com/n2oblife/live_video_processing.git
+cd live_video_processing
 ```
 
-Add `-GNinja` if you have Ninja.
+### Setup your computer
+To use this project you need t setup your computer. To do so you can use the scripts in the /scripts folder.
+PS : you can take a coffee or two during the setup
 
-To build:
+#### Windows -
+You can just click on the ```setup_project_win.bat``` file to install everything needed. You must follow the instruction and install everything by yourself until everything is done.
 
-```bash
-cmake --build build
+#### Linux (Ubuntu) -
+You can just launch the ```setup_project_linux.sh``` file to install everything needed.
+
+### Building the project
+Once your computer is ready, use the shell/powershell to build the project as following.
 ```
-
-To test (`--target` can be written as `-t` in CMake 3.15+):
-
-```bash
-cmake --build build --target test
+mkdir build
+cd build
+cmake ..
+make
 ```
-
-To build docs (requires Doxygen, output in `build/docs/html`):
-
-```bash
-cmake --build build --target docs
-```
-
-To use an IDE, such as Xcode:
-
-```bash
-cmake -S . -B xbuild -GXcode
-cmake --open xbuild
-```
-
-The CMakeLists show off several useful design patterns for CMake.
+If you want to rebuild your project after modifications juste enter ```make``` inside of the ```/build``` foler.
+If you made some mistakes, just delete the folder and do the building again.

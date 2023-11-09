@@ -1,10 +1,19 @@
 #!/bin/bash -e
+# made for the windows installation
 myRepo=$(pwd)
-#should write option depending on the plartform used
 
-CMAKE_GENERATOR_OPTIONS=-G"Visual Studio 16 2019"
+#should write option depending on the plartform used
+CMAKE_GENERATOR_OPTIONS=-G "Visual Studio 17 2022" -A x64
+
+#Depending on the platform in 2022 :
+# CMAKE_GENERATOR_OPTIONS=-G "Visual Studio 17 2022" -A Win32
+# CMAKE_GENERATOR_OPTIONS=-G "Visual Studio 17 2022" -A x64
+# CMAKE_GENERATOR_OPTIONS=-G "Visual Studio 17 2022" -A ARM
+# CMAKE_GENERATOR_OPTIONS=-G "Visual Studio 17 2022" -A ARM64
+#CMAKE_GENERATOR_OPTIONS=-G"Visual Studio 16 2019"
 #CMAKE_GENERATOR_OPTIONS=-G"Visual Studio 15 2017 Win64"
 #CMAKE_GENERATOR_OPTIONS=(-G"Visual Studio 16 2019" -A x64)  # CMake 3.14+ is required
+
 if [  ! -d "$myRepo/opencv"  ]; then
     echo "cloning opencv"
     git clone https://github.com/opencv/opencv.git
