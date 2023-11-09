@@ -1,5 +1,7 @@
 #!/bin/bash -e
 myRepo=$(pwd)
+#should write option depending on the plartform used
+
 CMAKE_GENERATOR_OPTIONS=-G"Visual Studio 16 2019"
 #CMAKE_GENERATOR_OPTIONS=-G"Visual Studio 15 2017 Win64"
 #CMAKE_GENERATOR_OPTIONS=(-G"Visual Studio 16 2019" -A x64)  # CMake 3.14+ is required
