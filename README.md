@@ -16,10 +16,17 @@ To use this project you need t setup your computer. To do so you can use the scr
 PS : you can take a coffee or two during the setup
 
 #### Windows -
-You can just click on the ```setup_project_win.bat``` file to install everything needed. You must follow the instruction and install everything by yourself until everything is done.
+You have to run this command line from the powershell to install everything needed. You must follow the instruction and install everything by yourself until everything is done:
+```
+cd path\to\folder\live_vide_processing
+.\scripts\setup_project_win.bat
+``` 
+
+This project relies on [the Boost library](https://www.boost.org/) and it must be installed before building the project.
+If possible install [GStreamer](https://gstreamer.freedesktop.org/documentation/installing/on-windows.html?gi-language=c) too.
 
 #### Linux (Ubuntu) -
-You can just launch the ```setup_project_linux.sh``` file to install everything needed.
+You can just launch the ```setup_project_linux.sh``` file from terminal to install everything needed.
 
 ### Building the project
 Once your computer is ready, use the shell/powershell to build the project as following.

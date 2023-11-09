@@ -7,7 +7,7 @@ cls
 @echo off
 setlocal ENABLEEXTENSIONS
 
-rem Check and/or install Cmake
+ECHO Checking Cmake
 WHERE cmake
 IF %ERRORLEVEL% NEQ 0 (
     ECHO CMake wasn't found, go to https://github.com/Kitware/CMake/releases/latest and install CMake
@@ -15,7 +15,7 @@ IF %ERRORLEVEL% NEQ 0 (
     GOTO :EOF
 )
 
-rem Check and/or install git-bash
+ECHO Checking git-bash
 WHERE git
 IF %ERRORLEVEL% NEQ 0 (
     ECHO git wasn't found, go to https://gitforwindows.org/ and install git-bash
@@ -32,12 +32,12 @@ rem Check the cmake option according to the VSCode version and architecture
 rem variable to do "or" statement
 SET temp_bool=F
 SET answer=y
-SET /P answer=Have you checked the CMAKE_GENERATOR_OPTIONS in the ./installOCV.sh file ? [Y/n] 
+SET /P answer=Have you adapted the CMAKE_GENERATOR_OPTIONS in the ./installOCV.sh file ? [Y/n] 
 IF /I %answer%==y SET temp_bool=T
 IF /I %answer%==yes SET temp_bool=T
 IF %temp_bool%==F (
-    ECHO Go change this line in the file to adapt the installation
-    ECHO You can go to the help panel in Visual Studio
+    ECHO Go change line 6 in the file to adapt the installation to your platform
+    ECHO You can go to the help panel in Visual Studio to see the version
     GOTO :EOF
 )
 
@@ -48,9 +48,10 @@ IF NOT EXIST C:\lib\installOCV.sh (
 )
 
 cd C:\lib\
+ECHO Running the OpenCV installation executable ...
 bash installOCV.sh
 IF %ERRORLEVEL% NEQ 0 (
-    ECHO install bash to launch .sh file : https://git-scm.com/download/win
+    ECHO Install bash to launch .sh file : https://git-scm.com/download/win
     ECHO Download the .exe file, launch the executable and follow the instructions
     GOTO :EOF
 )
