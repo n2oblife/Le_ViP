@@ -22,7 +22,7 @@ cd path\to\folder\live_vide_processing
 .\scripts\setup_project_win.bat
 ``` 
 
-This project relies on [the Boost library](https://www.boost.org/) and it must be installed before building the project.
+This project relies on [the Boost library](https://www.boost.org/) and it must be installed before building the project (extract the .zip file in your ```Programm File``` folder).
 If possible install [GStreamer](https://gstreamer.freedesktop.org/documentation/installing/on-windows.html?gi-language=c) too.
 
 #### Linux (Ubuntu) -
