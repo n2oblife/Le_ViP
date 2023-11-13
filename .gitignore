@@ -36,3 +36,5 @@
 
 # Visual Studio Code
 *.vscode*
+*.vs*
+*out*
