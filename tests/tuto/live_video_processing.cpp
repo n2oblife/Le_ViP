@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     while (true)
     {
         Mat frame;
-        bool bSuccess = cap.read(frame); // read a new frame from video 
+        bool bSuccess = cap.read(frame); // read a new frame from video
 
         //Breaking the while loop if the frames cannot be captured
         if (bSuccess == false) 
