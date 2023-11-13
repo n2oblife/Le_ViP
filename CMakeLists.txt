@@ -9,6 +9,11 @@ project(
   DESCRIPTION "A project to display live video streaming while processing it"
   LANGUAGES CXX)
 
+# Enable Hot Reload for MSVC compilers if supported.
+if (POLICY CMP0141)
+  cmake_policy(SET CMP0141 NEW)
+  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+endif()
 
 # Only do these if this is the main project, and not if it is included through add_subdirectory
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -19,6 +24,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
   set(CMAKE_CXX_EXTENSIONS OFF)
+  # set(CMAKE_CXX_COMPILER ON)
 
   # Let's nicely support folders in IDEs
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -43,14 +49,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   endif()
 
   # Arguments for using OpenCV
-  set(OPENCV_DIR "C:/lib/build_opencv")
+  # set(ENV{Path} "C:/lib/opencv/build/x64/vc16/bin;'${ENV{Path}}'")
+  set(OPENCV_DIR "C:/lib/opencv/build")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_OPENCV_DIR}")
-  # add only the used libraries
-  find_package( OpenCV REQUIRED core highgui videoio 
+  # add only the used libraries for optim
+  find_package( OpenCV REQUIRED core highgui videoio objdetect imgproc dnn video
     PATHS ${OPENCV_DIR} )
   include_directories( ${OpenCV_INCLUDE_DIRS} ) # provide library headers
   MESSAGE(STATUS "OpenCV_LIBS: " ${OpenCV_LIBS} )  #display opencv libs found
-  MESSAGE(STATUS "OpenCV path : " $(OpenCV_INSTALL_PATH))
+  MESSAGE(STATUS "OpenCV path : " "$(OPENCV_DIR)")
   set(IMPORTED_IMPLIB, ${OpenCV_LIBS})
 
 endif()
