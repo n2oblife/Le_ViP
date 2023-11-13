@@ -14,7 +14,7 @@ using namespace std;
 int main(int argc, char* argv[])
 {  
     //Open the default video camera
-    VideoCapture cap(2);
+    VideoCapture cap(1);
     cap.set(CAP_PROP_BUFFERSIZE, 1); // internal buffer will now store only 1 frames
 
     // if not success, exit program

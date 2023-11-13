@@ -17,8 +17,8 @@ sudo apt -y install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstr
 sudo apt -y install libeigen3-dev
 
 # Install OpenCV
-cd
-mkdir lib && cd lib
+# cd
+# mkdir lib && cd lib
 
 # myRepo=$(pwd)
 # if [  ! -d "$myRepo/opencv"  ]; then
