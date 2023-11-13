@@ -49,8 +49,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   endif()
 
   # Arguments for using OpenCV
-  # set(ENV{Path} "C:/lib/opencv/build/x64/vc16/bin;'${ENV{Path}}'")
-  set(OPENCV_DIR "C:/lib/opencv/build")
+  # use this line depending on the OS
+  set(OPENCV_DIR "C:/lib/build_opencv")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_OPENCV_DIR}")
   # add only the used libraries for optim
   find_package( OpenCV REQUIRED core highgui videoio objdetect imgproc dnn video

@@ -1,29 +1,31 @@
 #include <iostream>
-#include <stdio.h>
-#include <string>
 #include <opencv2/opencv.hpp>
+
 // #include <opencv2/core.hpp>
 // #include <opencv2/videoio.hpp>
 // #include <opencv2/highgui.hpp>
 
-#include <cstdlib>
-
-using namespace cv;
 using namespace std;
+using namespace cv;
 
-int main(int argc, char* argv[])
-{  
-    //Open the default video camera
-    VideoCapture cap(1);
-    cap.set(CAP_PROP_BUFFERSIZE, 1); // internal buffer will now store only 1 frames
+int main()
+{
+    // Open a camera
+    // find a way to get the correct camera
+    // might need a gui or cli 
+    int deviceID = 2;             // 0 = open default camera
+    int apiID = CAP_ANY;      // 0 = autodetect default API
+    VideoCapture cap;
+    cap.set(CAP_PROP_BUFFERSIZE, 1);
+    cap.open(deviceID, apiID);
 
-    // if not success, exit program
-    if (cap.isOpened() == false)  
+    // if not success, exit programm
+    if (cap.isOpened() == false)
     {
         cout << "Cannot open the video camera" << endl;
         cin.get(); //wait for any key press
         return -1;
-    } 
+    }
 
     double dWidth = cap.get(CAP_PROP_FRAME_WIDTH); //get the width of frames of the video
     double dHeight = cap.get(CAP_PROP_FRAME_HEIGHT); //get the height of frames of the video
@@ -34,35 +36,25 @@ int main(int argc, char* argv[])
     namedWindow(window_name); //create a window called "My Camera Feed"
 
     // Initialize the header which is constant
-    Mat frame;
-    Mat resized_frame;
-    // cap >> frame;
-    
+    // if a GPU is available it will connect to it
+    // whatch out in case of accelerator use (except if built in gpu on cpu)
+    // there is a shared memory flag that can be used if needed
+    UMat frame;
+    UMat resized_frame;
+
     while (true)
     {
-
         // Allocates the matrix' content with operator
         cap >> frame;
-        // bool bSuccess = cap.read(frame); // read a new frame from video(can use operator to go faster)
-        resize(frame, resized_frame, Size(640, 480), INTER_LINEAR);
-        // The use of grab and retrieve will be useful when computing mulitple cameras
-        // because retrieve syncrhonizes the decoding on multiple cameras
+        resize(frame, resized_frame, Size(640, 480), INTER_NEAREST);
 
         // If the frame is empty, break immediately
         if (frame.empty())
         break;
 
-        // if (bSuccess == false) 
-        // {
-        //     cout << "Video camera is disconnected" << endl;
-        //     cin.get(); //Wait for any key press
-        //     break;
-        // }
-
-        //show the frame in the created window
         imshow(window_name, resized_frame);
 
-        //wait for for 10 ms until any key is pressed.  
+        //wait for for 1 ms until any key is pressed.  
         //If the 'Esc' key is pressed, break the while loop.
         //If the any other key is pressed, continue the loop 
         //If any key is not pressed withing 10 ms, continue the loop 
@@ -73,14 +65,5 @@ int main(int argc, char* argv[])
         }
     }
 
-    // When everything done, release the video capture object
-    cap.release();
-    frame.release();
-    resized_frame.release();
-
-    // Closes all the frames
-    destroyAllWindows();
-
-    return 0;
-
+    return 0;  
 }
