@@ -15,8 +15,7 @@ int main(int argc, char* argv[])
 {  
     //Open the default video camera
     VideoCapture cap(2);
-    cap.set(CAP_PROP_FOURCC, )
-    cap.set(CAP_PROP_BUFFERSIZE, 1); // internal buffer will now store only 3 frames
+    cap.set(CAP_PROP_BUFFERSIZE, 1); // internal buffer will now store only 1 frames
 
     // if not success, exit program
     if (cap.isOpened() == false)  
@@ -36,11 +35,15 @@ int main(int argc, char* argv[])
 
     Mat frame;
     Mat resized_frame;
-    cap >> frame;
+    // cap >> frame;
     
     while (true)
     {
         cap >> frame;
+        // If the frame is empty, break immediately
+        if (frame.empty())
+        break;
+
         // bool bSuccess = cap.read(frame); // read a new frame from video(can use operator to go faster)
         resize(frame, resized_frame, Size(640, 480), INTER_LINEAR);
         // The use of grab and retrieve will be useful when computing mulitple cameras

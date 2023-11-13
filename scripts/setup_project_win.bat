@@ -28,28 +28,35 @@ IF NOT EXIST C:\lib\ (
     mkdir C:\lib\
 )
 
-rem Check the cmake option according to the VSCode version and architecture 
-rem variable to do "or" statement
-SET temp_bool=F
-SET answer=y
-SET /P answer=Have you adapted the CMAKE_GENERATOR_OPTIONS in the ./installOCV.sh file ? [Y/n] 
-IF /I %answer%==y SET temp_bool=T
-IF /I %answer%==yes SET temp_bool=T
-IF %temp_bool%==F (
-    ECHO Go change line 6 in the file to adapt the installation to your platform
-    ECHO You can go to the help panel in Visual Studio to see the version
-    GOTO :EOF
-)
+
+@REM rem Check the cmake option according to the VSCode version and architecture 
+@REM rem variable to do "or" statement
+@REM SET temp_bool=F
+@REM SET answer=y
+@REM SET /P answer=Have you adapted the CMAKE_GENERATOR_OPTIONS in the ./installOCV.sh file ? [Y/n] 
+@REM IF /I %answer%==y SET temp_bool=T
+@REM IF /I %answer%==yes SET temp_bool=T
+@REM IF %temp_bool%==F (
+@REM     ECHO Go change line 6 in the file to adapt the installation to your platform
+@REM     ECHO You can go to the help panel in Visual Studio to see the version
+@REM     GOTO :EOF
+@REM )
+
+@REM rem moving the installation file to the lib folder and launch file
+@REM SET bat_path=%~dp0
+@REM IF NOT EXIST C:\lib\installOCV.sh (
+@REM     xcopy  %bat_path:~0%installOCV.sh C:\lib\
+@REM )
 
 rem moving the installation file to the lib folder and launch file
 SET bat_path=%~dp0
-IF NOT EXIST C:\lib\installOCV.sh (
-    xcopy  %bat_path:~0%installOCV.sh C:\lib\
+IF NOT EXIST C:\lib\setup_project_linux.sh (
+    xcopy  %bat_path:~0%setup_project_linux.sh C:\lib\
 )
 
 cd C:\lib\
 ECHO Running the OpenCV installation executable ...
-bash installOCV.sh
+bash setup_project_linux.sh
 IF %ERRORLEVEL% NEQ 0 (
     ECHO Install bash to launch .sh file : https://git-scm.com/download/win
     ECHO Download the .exe file, launch the executable and follow the instructions

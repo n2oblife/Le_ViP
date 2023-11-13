@@ -43,16 +43,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   endif()
 
   # Arguments for using OpenCV
-  # set(OPENCV_DIR "C:/lib/build_opencv")
+  set(OPENCV_DIR "C:/lib/build_opencv")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_OPENCV_DIR}")
-  # set(OpenCV_PREFIX "C:/lib/build_opencv")
   # add only the used libraries
-  find_package( OpenCV REQUIRED core highgui videoio )
-  # PATHS ${OPENCV_DIR} )
+  find_package( OpenCV REQUIRED core highgui videoio 
+    PATHS ${OPENCV_DIR} )
   include_directories( ${OpenCV_INCLUDE_DIRS} ) # provide library headers
   MESSAGE(STATUS "OpenCV_LIBS: " ${OpenCV_LIBS} )  #display opencv libs found
   MESSAGE(STATUS "OpenCV path : " $(OpenCV_INSTALL_PATH))
-  set(IMPORTED_IMPLIB_)
+  set(IMPORTED_IMPLIB, ${OpenCV_LIBS})
 
 endif()
 

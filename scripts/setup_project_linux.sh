@@ -20,23 +20,23 @@ sudo apt -y install libeigen3-dev
 cd
 mkdir lib && cd lib
 
-myRepo=$(pwd)
-if [  ! -d "$myRepo/opencv"  ]; then
-    echo "cloning opencv"
-    git clone https://github.com/opencv/opencv.git
-else
-    cd opencv
-    git pull --rebase
-    cd ..
-fi
-if [  ! -d "$myRepo/opencv_contrib"  ]; then
-    echo "cloning opencv_contrib"
-    git clone https://github.com/opencv/opencv_contrib.git
-else
-    cd opencv_contrib
-    git pull --rebase
-    cd ..
-fi
+# myRepo=$(pwd)
+# if [  ! -d "$myRepo/opencv"  ]; then
+#     echo "cloning opencv"
+#     git clone https://github.com/opencv/opencv.git
+# else
+#     cd opencv
+#     git pull --rebase
+#     cd ..
+# fi
+# if [  ! -d "$myRepo/opencv_contrib"  ]; then
+#     echo "cloning opencv_contrib"
+#     git clone https://github.com/opencv/opencv_contrib.git
+# else
+#     cd opencv_contrib
+#     git pull --rebase
+#     cd ..
+# fi
 wget -O opencv.zip https://github.com/opencv/opencv/archive/4.x.zip
 wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.x.zip
 unzip opencv.zip
