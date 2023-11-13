@@ -30,5 +30,5 @@ mkdir -p opencv && cd opencv
 cmake -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib-4.x/modules ../opencv-4.x
 # Build
 cmake --build . -j $(nproc)
-
+cd ..
 rm -r -f opencv.zip opencv-4.x opencv_contrib.zip opencv_contrib-4.x
