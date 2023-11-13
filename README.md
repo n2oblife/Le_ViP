@@ -12,18 +12,19 @@ cd live_video_processing
 ```
 
 ### Setup your computer
-To use this project you need t setup your computer. To do so you can use the scripts in the /scripts folder.
+To use this project you need t setup your computer.
 PS : you can take a coffee or two during the setup
 
 #### Windows -
-You have to run this command line from the powershell to install everything needed. You must follow the instruction and install everything by yourself until everything is done:
-```
-cd path\to\folder\live_vide_processing
-.\scripts\setup_project_win.bat
-``` 
 
-This project relies on [the Boost library](https://www.boost.org/) and it must be installed before building the project (extract the .zip file in your ```Programm File``` folder).
-If possible install [GStreamer](https://gstreamer.freedesktop.org/documentation/installing/on-windows.html?gi-language=c) too.
+You have to install some things :
+- [C++ compiler](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)
+- [CMake](https://cmake.org/download/)
+- [Boost](https://www.boost.org/)
+- [GStreamer](https://gstreamer.freedesktop.org/documentation/installing/on-windows.html?gi-language=c)
+
+When everything is set up, install [OpenCV](https://opencv.org/get-started/) (the Windows' release version) and put it in ```C:\lib``` and then launch ```C:\lib\opencv\build\setup_vars_opencv4.cmd``` to setup the environnement variables automatically.
+
 
 #### Linux (Ubuntu) -
 You can just launch the ```setup_project_linux.sh``` file from terminal to install everything needed.
@@ -34,7 +35,11 @@ Once your computer is ready, use the shell/powershell to build the project as fo
 mkdir build
 cd build
 cmake ..
-make
+make --build . --config <release or debug> -j <nbr of threads>
 ```
-If you want to rebuild your project after modifications juste enter ```make``` inside of the ```/build``` foler.
-If you made some mistakes, just delete the folder and do the building again.
+To have the number of thread on Linux : ```$(nproc)```
+
+To have the number of thread on Windows : [Intel_FAQ](https://www.intel.com/content/www/us/en/support/articles/000029254/processors.html)
+
+If you want to rebuild your project after modifications juste enter the last line inside of the ```/build``` folder.
+If you changed the architecture of the project or one of the CMakeList.txt or you made some mistakes, just delete the ```/build``` folder and do the building again.

@@ -17,33 +17,18 @@ sudo apt -y install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstr
 sudo apt -y install libeigen3-dev
 
 # Install OpenCV
-# cd
-# mkdir lib && cd lib
+cd
+mkdir lib && cd lib
 
-# myRepo=$(pwd)
-# if [  ! -d "$myRepo/opencv"  ]; then
-#     echo "cloning opencv"
-#     git clone https://github.com/opencv/opencv.git
-# else
-#     cd opencv
-#     git pull --rebase
-#     cd ..
-# fi
-# if [  ! -d "$myRepo/opencv_contrib"  ]; then
-#     echo "cloning opencv_contrib"
-#     git clone https://github.com/opencv/opencv_contrib.git
-# else
-#     cd opencv_contrib
-#     git pull --rebase
-#     cd ..
-# fi
 wget -O opencv.zip https://github.com/opencv/opencv/archive/4.x.zip
 wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.x.zip
 unzip opencv.zip
 unzip opencv_contrib.zip
 # Create build directory and switch into it
-mkdir -p build && cd build
+mkdir -p opencv && cd opencv
 # Configure
 cmake -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib-4.x/modules ../opencv-4.x
 # Build
 cmake --build . -j $(nproc)
+
+rm -r -f opencv.zip opencv-4.x opencv_contrib.zip opencv_contrib-4.x
