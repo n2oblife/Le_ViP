@@ -35,10 +35,14 @@ int main()
     string window_name = "My Camera Feed";
     namedWindow(window_name); //create a window called "My Camera Feed"
 
-    // Initialize the header which is constant
-    // if a GPU is available it will connect to it
-    // whatch out in case of accelerator use (except if built in gpu on cpu)
-    // there is a shared memory flag that can be used if needed
+    /*
+    Initialize the header which is constant
+    if a GPU is available it will connect to it
+    whatch out in case of accelerator use (except if built in gpu on cpu)
+    there is a shared memory flag that must be used !!!!!
+    when creating UMat => new OpenCL instance
+    */  
+
     UMat frame;
     UMat resized_frame;
 
