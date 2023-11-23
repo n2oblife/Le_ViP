@@ -57,7 +57,7 @@ int main(int argc, char const *argv[])
 
 	// Randomly select 25 frames
 	default_random_engine generator;
-	uniform_int_distribution<int>distribution(0, cap.get(CAP_PROP_FRAME_COUNT));
+	uniform_int_distribution<int> distribution(0, cap.get(CAP_PROP_FRAME_COUNT));
 
 	vector<Mat> frames;
 	Mat frame, rszd_frame;

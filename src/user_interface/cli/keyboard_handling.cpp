@@ -2,12 +2,39 @@
 
 #include <opencv2/highgui.hpp>
 
-// to be used in loop of frame computation
-void keyboardEvent(int& key)
+
+// ASCII conversion
+// 1-9 : 49-57
+// a-z : 97-122
+// + : 43
+// - : 45
+// / : 47
+// * : 42
+// . : 46
+
+void keyboardEvent(const int& key)
 {
-    // Esc is pressed
-    if (key == 27)
+    switch (key)
     {
-        break;
+    // Esc
+    case 27:
+        return break;
+    
+    default:
+        return;
+    }
+}
+
+void keyboardEvent(const char& event)
+{
+    const int key = int(event);
+    switch (key)
+    {
+    // Esc
+    case 27:
+        return break;
+    
+    default:
+        return;
     }
 }
