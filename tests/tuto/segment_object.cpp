@@ -1,10 +1,10 @@
-#include <image_processing/segment_object.hpp>
+// #include <image_processing/segment_object.hpp>
+// #include <image_processing/utility.hpp>
 
 #include "opencv2/imgproc.hpp"
 #include "opencv2/videoio.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/video/background_segm.hpp"
-#include <image_processing/utility.hpp>
 #include <stdio.h>
 #include <string>
 #include <iostream>
@@ -77,78 +77,78 @@ static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
 }
 
 
-int mainFunction(const string& input, Mat& out_frame, const int& threshold=10)
-{
-    // Initialize VideoCapture, set a flag for updating the background model, and parse command-line arguments
-    VideoCapture cap;
-    bool update_bg_model = true;
+// int mainFunction(const string& input, Mat& out_frame, const int& threshold=10)
+// {
+//     // Initialize VideoCapture, set a flag for updating the background model, and parse command-line arguments
+//     VideoCapture cap;
+//     bool update_bg_model = true;
 
-    // Determine the input source (camera or video file)
-    determineInputCap(input, cap);
+//     // Determine the input source (camera or video file)
+//     determineInputCap(input, cap);
 
-    // Check if the VideoCapture object is successfully opened
-    if (!cap.isOpened())
-    {
-        cerr << "\nCan not open camera or video file\n";
-        return -1;
-    } 
+//     // Check if the VideoCapture object is successfully opened
+//     if (!cap.isOpened())
+//     {
+//         cerr << "\nCan not open camera or video file\n";
+//         return -1;
+//     } 
 
-    // Initialize Mat objects for temporary frame storage, background mask, and output frame
-    Mat tmp_frame, bgmask;
+//     // Initialize Mat objects for temporary frame storage, background mask, and output frame
+//     Mat tmp_frame, bgmask;
 
-    // Capture the first frame from the video source
-    cap >> tmp_frame;
-    if (tmp_frame.empty())
-    {
-        cerr << "\nCan not read data from the video source\n";
-        return -1;
-    }
+//     // Capture the first frame from the video source
+//     cap >> tmp_frame;
+//     if (tmp_frame.empty())
+//     {
+//         cerr << "\nCan not read data from the video source\n";
+//         return -1;
+//     }
 
-    // Create windows for displaying the original video and segmented output
-    namedWindow("Source", 1);
-    namedWindow("Segmented", 1);
-    namedWindow("Overlay", 1);
+//     // Create windows for displaying the original video and segmented output
+//     namedWindow("Source", 1);
+//     namedWindow("Segmented", 1);
+//     namedWindow("Overlay", 1);
 
-    // Create a BackgroundSubtractorMOG2 object and set a variance threshold
-    Ptr<BackgroundSubtractorMOG2> bgsubtractor = createBackgroundSubtractorMOG2();
-    bgsubtractor->setVarThreshold(threshold); // default value at definition of function
+//     // Create a BackgroundSubtractorMOG2 object and set a variance threshold
+//     Ptr<BackgroundSubtractorMOG2> bgsubtractor = createBackgroundSubtractorMOG2();
+//     bgsubtractor->setVarThreshold(threshold); // default value at definition of function
 
-    // Main loop for processing video frames
-    for (;;)
-    {
-        // Capture the current frame
-        cap >> tmp_frame;
+//     // Main loop for processing video frames
+//     for (;;)
+//     {
+//         // Capture the current frame
+//         cap >> tmp_frame;
 
-        // Break the loop if no more frames are available
-        if (tmp_frame.empty())
-        {
-            cerr << "\nVideo flow broke, no more frame\n";
-            return -1;
-        }
+//         // Break the loop if no more frames are available
+//         if (tmp_frame.empty())
+//         {
+//             cerr << "\nVideo flow broke, no more frame\n";
+//             return -1;
+//         }
 
-        // Apply the background subtraction algorithm to obtain a background mask
-        bgsubtractor->apply(tmp_frame, bgmask, update_bg_model ? -1 : 0);
+//         // Apply the background subtraction algorithm to obtain a background mask
+//         bgsubtractor->apply(tmp_frame, bgmask, update_bg_model ? -1 : 0);
 
-        // Refine the segmentation using the custom refineSegments function
-        refineSegments(tmp_frame, bgmask, out_frame);
+//         // Refine the segmentation using the custom refineSegments function
+//         refineSegments(tmp_frame, bgmask, out_frame);
 
-        // Display the original video and segmented output
-        imshow("video", tmp_frame);
-        imshow("segmented", out_frame);
+//         // Display the original video and segmented output
+//         imshow("video", tmp_frame);
+//         imshow("segmented", out_frame);
 
-        // Wait for a key press (ESC to exit, spacebar to toggle background model updating)
-        char keycode = (char)waitKey(30);
-        if (keycode == 27)
-            break;  // Break the loop if the ESC key is pressed
-        if (keycode == ' ')
-        {
-            update_bg_model = !update_bg_model;
-            printf("Learn background is in state = %d\n", update_bg_model);
-        }
-    }
+//         // Wait for a key press (ESC to exit, spacebar to toggle background model updating)
+//         char keycode = (char)waitKey(30);
+//         if (keycode == 27)
+//             break;  // Break the loop if the ESC key is pressed
+//         if (keycode == ' ')
+//         {
+//             update_bg_model = !update_bg_model;
+//             printf("Learn background is in state = %d\n", update_bg_model);
+//         }
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
 int main(int argc, char** argv)
 {
@@ -180,6 +180,7 @@ int main(int argc, char** argv)
 
     // Initialize Mat objects for temporary frame storage, background mask, and output frame
     Mat tmp_frame, bgmask, out_frame;
+    Mat resized_tmp, resized_out;
 
     // Capture the first frame from the video source
     cap >> tmp_frame;
@@ -214,8 +215,10 @@ int main(int argc, char** argv)
         refineSegments(tmp_frame, bgmask, out_frame);
 
         // Display the original video and segmented output
-        imshow("video", tmp_frame);
-        imshow("segmented", out_frame);
+        resize(tmp_frame, resized_tmp, Size(640, 480), INTER_NEAREST);
+        resize(out_frame, resized_out, Size(640, 480), INTER_NEAREST);
+        imshow("video", resized_tmp);
+        imshow("segmented", resized_out);
 
         // Wait for a key press (ESC to exit, spacebar to toggle background model updating)
         char keycode = (char)waitKey(30);

@@ -12,13 +12,28 @@ add_executable(SegmentObj segment_object.cpp)
 target_link_libraries( SegmentObj PRIVATE ${OpenCV_LIBS})
 
 add_executable( DNNObjDetect dnn_object_detection.cpp)
-target_link_libraries(DNNObjDetect PRIVATE ${OpenCV_LIBS} common)
+target_link_libraries(DNNObjDetect PRIVATE ${OpenCV_LIBS})
 
 add_executable(DNNSegmentation dnn_segmentation.cpp)
-target_link_libraries(DNNSegmentation PRIVATE ${OpenCV_LIBS} common)
+target_link_libraries(DNNSegmentation PRIVATE ${OpenCV_LIBS})
 
 add_executable(VideoWrite video_write.cpp)
 target_link_libraries(VideoWrite PRIVATE ${OpenCV_LIBS})
 
 add_executable(VideoWriteBasic video_write_basic.cpp)
 target_link_libraries(VideoWriteBasic PRIVATE ${OpenCV_LIBS})
+
+add_executable(ForegroundMasking foreground_masking.cpp)
+target_link_libraries(ForegroundMasking PRIVATE ${OpenCV_LIBS})
+
+add_executable(Tracker tracker.cpp)
+target_link_libraries(Tracker PRIVATE ${OpenCV_LIBS})
+
+add_executable(DeepSort deepsort.cpp)
+target_link_libraries(DeepSort PRIVATE ${OpenCV_LIBS})
+
+add_executable(MedianBg median_estimation.cpp)
+target_link_libraries(MedianBg PRIVATE ${OpenCV_LIBS})
+
+add_executable(Overlay alpha_blending.cpp)
+target_link_libraries(Overlay PRIVATE ${OpenCV_LIBS})
