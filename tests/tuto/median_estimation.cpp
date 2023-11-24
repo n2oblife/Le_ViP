@@ -40,6 +40,8 @@ cv::Mat compute_median(std::vector<cv::Mat> vec) {
 	return medianImg;
 }
 
+//======================================================================
+
 int main(int argc, char const *argv[])
 {	
 	std::string video_file;
