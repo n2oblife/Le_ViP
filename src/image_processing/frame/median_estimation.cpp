@@ -6,7 +6,7 @@
 #include <random>
 
 // can be an int or a str
-template <typename INPUT>;
+template <typename CAP_INPUT>;
 template <typename MEDIAN>;
 
 MEDIAN getMedian(std::vector<MEDIAN> elements) {
@@ -53,7 +53,7 @@ cv::Mat compute_median(std::vector<cv::Mat> vec) {
 }
 
 cv::Mat computeMedianFrame(
-    const INPUT& input,
+    const CAP_INPUT& input,
     int& nFrames = 25
 )
 {

@@ -6,7 +6,7 @@
 #include <iostream>
 
 // can be an int or a str
-template <typename INPUT>;
+template <typename CAP_INPUT>;
 template <typename MEDIAN>;
 
 /// @brief Get median value of a list.
@@ -24,7 +24,7 @@ cv::Mat compute_median(std::vector<cv::Mat> vec);
 /// @param nFrames Number of frames to take into account from beggining 
 /// @return A Mat with median pixel values 
 cv::Mat computeMedianFrame(
-    const INPUT& input,
+    const CAP_INPUT& input,
     int& nFrames = 25
 );
 
