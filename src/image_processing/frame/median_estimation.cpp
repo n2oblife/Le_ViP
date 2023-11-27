@@ -57,18 +57,22 @@ cv::Mat computeMedianFrame(
     int& nFrames = 25
 )
 {
+	// init capture
     auto cap = initVideoCap(input);
+
+	// Set the parameters
+	nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+	std::vector<cv::Mat> frames;
+	cv::Mat frame;
 
 	// Randomly select nFrames frames
 	std::default_random_engine generator;
-	std::uniform_int_distribution<int> distribution(0, cap.get(CAP_PROP_FRAME_COUNT));
+	std::uniform_int_distribution<int> distribution(0, cap.get(cv::CAP_PROP_FRAME_COUNT));
 
-    nFrames = std::min(nFrames, cap.get(CAP_PROP_FRAME_COUNT));
 
-	vector<Mat> frames;
 	for(int i=0; i<nFrames; i++) {
 		int fid = distribution(generator);
-		cap.set(CAP_PROP_POS_FRAMES, fid);
+		cap.set(cv::CAP_PROP_POS_FRAMES, fid);
 		cap >> frame;
 		if(frame.empty())
 			continue;
@@ -77,4 +81,106 @@ cv::Mat computeMedianFrame(
 
 	// Calculate the median along the time axis
 	return compute_median(frames);
+}
+
+cv::Mat computeMedianFrame(
+	const cv::VideoCapture cap,
+    int& nFrames = 25
+)
+{
+	// Set the parameters
+    nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+	std::vector<cv::Mat> frames;
+	cv::Mat frame;
+
+	// Randomly select nFrames frames
+	std::default_random_engine generator;
+	std::uniform_int_distribution<int> distribution(0, cap.get(cv::CAP_PROP_FRAME_COUNT));
+
+	for(int i=0; i<nFrames; i++) {
+		int fid = distribution(generator);
+		cap.set(cv::CAP_PROP_POS_FRAMES, fid);
+		cap >> frame;
+		if(frame.empty())
+			continue;
+		frames.push_back(frame);
+	}
+
+	// Calculate the median along the time axis
+	return compute_median(frames);
+}
+
+cv::Mat computeMedianFrame(
+    const CAP_INPUT& input,
+	cv::Mat& frame,
+	const bool& working=true,
+    int& nFrames = 25
+)
+{
+	// init capture
+    auto cap = initVideoCap(input);
+	
+	// Set the parameters
+    nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+	std::vector<cv::Mat> frames;
+
+	// Randomly select nFrames frames
+	std::default_random_engine generator;
+	std::uniform_int_distribution<int> distribution(0, cap.get(cv::CAP_PROP_FRAME_COUNT));
+
+	for(int i=0; i<nFrames; i++) {
+		int fid = distribution(generator);
+		cap.set(cv::CAP_PROP_POS_FRAMES, fid);
+		cap >> frame;
+		if(frame.empty())
+			continue;
+		frames.push_back(frame);
+	}
+
+	const auto medianFrame = compute_median(frames);
+	// Calculate the median along the time axis
+	if (working)
+	{
+		cv::Mat grayMedianFrame;
+		cv::cvtColor(medianFrame, grayMedianFrame, cv::COLOR_BGR2GRAY);
+		return grayMedianFrame;
+	}
+	else
+		return medianFrame;
+}
+
+cv::Mat computeMedianFrame(
+	const cv::VideoCapture& cap,
+	cv::Mat& frame,
+	const bool& working=true,
+    int& nFrames = 25
+)
+{
+	// Set the parameters
+    nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+	std::vector<cv::Mat> frames;
+
+	// Randomly select nFrames frames
+	std::default_random_engine generator;
+	std::uniform_int_distribution<int> distribution(0, cap.get(cv::CAP_PROP_FRAME_COUNT));
+
+	for(int i=0; i<nFrames; i++) {
+		int fid = distribution(generator);
+		cap.set(cv::CAP_PROP_POS_FRAMES, fid);
+		cap >> frame;
+		if(frame.empty())
+			continue;
+		frames.push_back(frame);
+	}
+
+	const auto medianFrame = compute_median(frames);
+	// Calculate the median along the time axis
+	if (working)
+	{
+		cv::Mat grayMedianFrame;
+		cv::cvtColor(medianFrame, grayMedianFrame, cv::COLOR_BGR2GRAY);
+		return grayMedianFrame;
+	}
+	else
+		return medianFrame;
 }

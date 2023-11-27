@@ -70,11 +70,7 @@ if __name__ == '__main__':
     input = vars['input']
     output = vars['output']
     image = Image.open(input)
-    data = np.asarray(image)
-    gray_image = image.convert('L')
-    gray_data = np.asarray(gray_image)
     finalize_mask(image, 240)
-    gray_image = finalize_mask(gray_image, 240)
     image.save('output.png')
     data_reparition(np.asarray(image))
 

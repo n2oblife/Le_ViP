@@ -12,6 +12,7 @@ class trackbar
 private:
     SL_TYPE slider_max=100, slider_min=0, slider;
     char slider_name[64], window_name[64];
+    // TODO add the function of trackbar callback as template ? + constructor
 public:
     trackbar(/* args */);
     ~trackbar();
