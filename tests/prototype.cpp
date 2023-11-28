@@ -139,6 +139,7 @@ cv::Mat compute_median(std::vector<cv::Mat> vec) {
 cv::Mat computeMedianFrame(
 	cv::VideoCapture& cap,
 	cv::Mat& frame,
+    const bool& stream = false, // TODO : find a way to tell difference between file and streaming
 	const bool& working=true,
     int nFrames = 25
 )
@@ -160,16 +161,13 @@ cv::Mat computeMedianFrame(
 		frames.push_back(frame);
 	}
 
-	const auto medianFrame = compute_median(frames);
+    // set back to first frame
+    cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+	auto medianFrame = compute_median(frames);
 	// Calculate the median along the time axis
 	if (working)
-	{
-		cv::Mat grayMedianFrame;
-		cv::cvtColor(medianFrame, grayMedianFrame, cv::COLOR_BGR2GRAY);
-		return grayMedianFrame;
-	}
-	else
-		return medianFrame;
+		cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
+    return medianFrame;
 }
 
 
@@ -257,38 +255,58 @@ cv::Mat initAlphaFrame(
     return alpha;
 }
 
+cv::Mat initAlphaFrame(
+    const std::string& alphaStr, 
+    const cv::Size& frameResize,
+    const int& maketype
+)
+{
+    // Read the alpha frame
+    auto alpha = cv::imread(alphaStr);
+    // Resize the alpha frame
+    resize(alpha, alpha, frameResize, cv::INTER_LINEAR);
+    // Normalize the alpha mask to keep intensity between 0 and 1
+    alpha.convertTo(alpha, maketype, 1.0/255);
+    return alpha;
+}
+
 /// ================================================
 /// --------------------- Main ---------------------
 /// ================================================
 
 const std::string params
     = "{ help h       |        | Print usage }"
-      "{ source s     |        | Source video to compute, 2sec of background at beginning }" 
+      "{ input i      |        | Source video to compute, 2sec of background at beginning }" 
       "{ alpha a      | <none> | Alpha mask to determine which part must be treated }"
       "{ background b | <none> | Background that can be used as median frame instead of computing it }" 
       "{ algo c       | <none> | Algo to use if there is no alpha mask given}"
       "{ output o     | <none> | Output file where to save the result of computation }" 
+      "{ hide h       | <none> | If non null hides the video}"
       ;
 
 int main(int argc, char const *argv[])
 {
+    /// ------------------------------------
+
     // Parse the args
     cv::CommandLineParser parser(argc, argv, params);
     parser.about(
         "This program is a prototype of how to segment element"
         "based on the comparaison with the background\n"
     );
-    if (parser.has("help"))
+    if (parser.has("help") || argc <= 1)
     {
         //print help information
         parser.printMessage();
     }
 
+    /// ------------------------------------
+
     // set the parameters to use
     bool use_alpha=false, saving=false, use_background=false;
-    cv::Mat frame, dframe, rszd_frame, medianFrame, alpha;
-    const cv::Mat color_overlay(cv::Scalar(0,0,255));
+    cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, grayAlpha;
     const std::string window_name = "frame";
+    cv::VideoWriter writer;
     cv::namedWindow(window_name); // create window
     
     //create Background Subtractor objects
@@ -303,7 +321,7 @@ int main(int argc, char const *argv[])
     // }
     // // create taskbar for the diff threshold
     const auto max_threshold = 255.;
-    auto thr_slider = 30;
+    auto thr_slider = 64;
     // char*  trackbar_name = "diff threshold"; // check if possible to add const
     // sprintf(trackbar_name, " threshold x %d", max_threshold);
     // cv::createTrackbar(
@@ -316,7 +334,9 @@ int main(int argc, char const *argv[])
 
     // // create the taskbar for the overlay power
     const auto max_overlay = 255.;
-    auto overlay_slider = 0.3;
+    auto overlay_slider = 1.;
+    auto bkcgnd_slider = 0.8;
+    auto rem_slider = -0.5;
     // char* overlay_trackbar_name = "overlay threshold";
     // sprintf(overlay_trackbar_name, "overlay x %d", max_overlay);
     // cv::createTrackbar(  
@@ -341,21 +361,44 @@ int main(int argc, char const *argv[])
         {"cudaMOG", 9},
     };
 
+    // insert point to puncture
+    cv::Point puncture_zone(440, 270);
+    const int rad = 16;
+
+    /// ------------------------------------
+
     // Define the capture and input
     std::cout << "The input is " << parser.get<std::string>("input") << std::endl;
     auto cap = initVideoCap(parser.get<std::string>("input"));
+    cap >> frame;
+    const auto cap_maketype = frame.type(); 
+    const auto cap_size = cv::Size(
+        cap.get(cv::CAP_PROP_FRAME_WIDTH),
+        cap.get(cv::CAP_PROP_FRAME_HEIGHT)
+    );
+    // set colored overlay
+    const cv::Mat color_overlay(cap_size, cap_maketype , cv::Scalar(0,0,255));
+    // cv::imshow("RED", color_overlay);
 
     // Define way to get element, background priority
     if (parser.has("alpha"))
     {
         // Init alpha frames
-        const auto alpha = initAlphaFrame(
-            parser.get<std::string>("alpha")
+        alpha = initAlphaFrame(
+            parser.get<std::string>("alpha"),
+            cap_size,
+            cap_maketype
         );
+        cv::cvtColor(alpha, grayAlpha, cv::COLOR_BGR2GRAY);
         use_alpha = true;
     }
     else
         use_alpha = false;
+
+    std::cout << "CAP MAKETYPE : " << cap_maketype << std::endl;
+    std::cout << "ALPHA MAKETYPE : " << alpha.type() << std::endl;
+    std::cout << "GRAY ALPHA MAKETYPE : " << grayAlpha.type() << std::endl;
+
 
     if (parser.has("background"))
     {
@@ -365,11 +408,18 @@ int main(int argc, char const *argv[])
         // bckgd_cap.open(bckgd_frame);
         // if image
         medianFrame = cv::imread(parser.get<std::string>("background"));
+        std::cout << "BACKGROUND INFO BEFORE PREPROCESSING : " 
+                  << medianFrame.size << " & "
+                  << medianFrame.type() << std::endl;
+        cv::resize(medianFrame, medianFrame, cap_size,  cv::INTER_LINEAR);
 		cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
+        std::cout << "BACKGROUND INFO AFTER PREPROCESSING : " 
+            << medianFrame.size << " & "
+            << medianFrame.type() << std::endl;
         use_background = true;
 
         if (use_alpha)
-            cv::multiply(medianFrame, alpha, medianFrame);
+            cv::multiply(medianFrame, grayAlpha, medianFrame);
     }
     else
     {
@@ -416,41 +466,54 @@ int main(int argc, char const *argv[])
                         << "MOG2, KNN / don't work -> CNT,GMG, GSOC, SBP, MOG, cudaFGD, cudaGMG, cudaMOG" << std::endl;
                 return -1;
             }
-            const bool use_background = false;
+            use_background = false;
         }
         else // DEFAULT PATH
         {
-            medianFrame = computeMedianFrame(cap, frame, true, 60);
-            const bool use_background = true;
+            // medianFrame = computeMedianFrame(cap, frame, false, true, 30);
+            cap.set(cv::CAP_PROP_POS_FRAMES, 180);
+            cap >> medianFrame;
+            cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+            cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
+            use_background = true;
             if (use_alpha)
-                cv::multiply(medianFrame, alpha, medianFrame);
+            {
+                std::cout << "size of medianFrame " << medianFrame.size << std::endl;
+                std::cout << "size of alpha " << alpha.size << std::endl;
+                cv::multiply(medianFrame, grayAlpha, medianFrame);
+            }
         }
     }
+    std::cout << "MEDIAN MAKETYPE : " << medianFrame.type() << std::endl;
+    cv::resize(medianFrame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+    // cv::imshow("median", rszd_frame);
 
     // Define the output where to save result
     if (parser.has("output"))
     {
-        cv::VideoWriter writer = cv::VideoWriter(
+        writer.open(
             parser.get<std::string>("output"),
             cv::CAP_ANY, // default api
             cv::VideoWriter::fourcc('M','J','P','G'),
-            30.,
-            cv::Size(1920, 1080),
+            cap.get(cv::CAP_PROP_XI_FRAMERATE),
+            cap_size,
             true // isColor
         );
 
         if (!writer.isOpened()) 
         {
             std::cerr << "Could not open the output video file for write\n";
-            saving = false;
+            const bool saving = false;
         }
-        saving = true;
+        const bool saving = true;
     }
     else
         const bool saving = false;
     // TODO check how to put maxFrames in the for loop
     // if (saving)
     //     const int maxFrames = videoMaxFrame(writer);
+
+    /// ------------------------------------
 
 
     // TODO fix use of run time bool => find better way !!
@@ -459,6 +522,7 @@ int main(int argc, char const *argv[])
     {
         // read frames 
         cap >> frame;
+        frame.copyTo(fin_frame);
 
         // TODO check this later
         // // do smthg if needs empty
@@ -470,9 +534,11 @@ int main(int argc, char const *argv[])
 
 
         // Convert current frame to grayscale
-		cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
+
+		cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
+        // std::cout << " Frame infos : " << frame.size << frame.type() << std::endl;
         if (use_alpha)
-            cv::multiply(frame, alpha, frame);
+            cv::multiply(frame, grayAlpha, frame);
 		
         if (use_background)
         {
@@ -482,10 +548,10 @@ int main(int argc, char const *argv[])
             // Threshold to binarize (will change the shadow)
             cv::threshold(dframe, dframe, thr_slider, max_threshold, cv::THRESH_BINARY);
             // on_trackbar(thr_slider)
-            // cv::threshold(dframe, dframe, 30, 255, cv::THRESH_BINARY);
 
             // Change color of the mask (might look at smthg else)
-            cv::multiply(dframe, color_overlay, dframe);
+            cv::cvtColor(dframe, dframe, cv::COLOR_GRAY2BGR);
+            // cv::imshow("dframe colored", dframe);
         }
         else
         {
@@ -494,11 +560,22 @@ int main(int argc, char const *argv[])
         }
 
         // overlay the result over the source video
-        cv::addWeighted(frame, 1., dframe, overlay_slider, 0.0, dframe);
+        // cv::cvtColor(frame, frame, cv::COLOR_GRAY2BGR); // just copy before ? !!!
+        /// TROP LENTS !!!!!!
+        cv::addWeighted(fin_frame, 1, dframe, rem_slider, 0.0, fin_frame);
+        cv::multiply(dframe, color_overlay, dframe);
+        cv::circle(fin_frame, puncture_zone, rad, cv::Scalar(0,255,0), 2);
+        cv::addWeighted(fin_frame, bkcgnd_slider, dframe, overlay_slider, 0.0, fin_frame);
 
-		// Display Image
-        resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-		imshow(window_name, rszd_frame);
+
+		// // Display Image
+        // cv::resize(frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+        // cv::imshow("Test", rszd_frame);
+        cv::resize(fin_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+		if (! parser.has("hide"))
+            cv::imshow(window_name, rszd_frame);
+        if(saving)
+            writer.write(fin_frame);
 
         // TODO add the handle function later
         // Exit if ESC pressed
