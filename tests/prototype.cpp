@@ -1,23 +1,26 @@
 #include <string>
 #include <iostream>
 #include <random>
+#include <map>
+
+#include "../include/image_processing/utility/constante.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/video.hpp>
+#include <opencv2/video/background_segm.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
+
 
 
 /// --------------------- Function definitions ---------------------
 
 /// ==== New functions ====
 
-// function for threshold trackbar
-static void on_trackbar( const int& thr_slider)
-{
-    threshold(dframe, dframe, thr_slider, 255, cv::THRESH_BINARY);
-}
+
 
 /// -------------------------
 /// Device init functions
@@ -31,24 +34,21 @@ cv::VideoCapture initVideoCap(const std::string& input)
     else if (input.size() == 1)
         cap.open(std::stoi(input));  // If the input is one string long, it is considered a number, opens the input index cam
     else
-        cap.open(samples::findFileOrKeep(input));  // Open the specified video file
+        cap.open(cv::samples::findFileOrKeep(input));  // Open the specified video file
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return break;
-    return cap
+        return;
+    return cap;
 }
 
-cv::VideoCapture initVideoCap(const int& input)
+cv::VideoCapture initVideoCap(const int& input=0)
 {
     cv::VideoCapture cap;
     // Determine the input source (camera or video file)
-    if (input.empty())
-        cap.open(0);  // If no input is provided, open the default camera (index 0)
-    else
-        cap.open(input);
+    cap.open(input);
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return break;
+        return;
     return cap;
 }
 
@@ -56,7 +56,7 @@ int videoMaxFrame(
     const cv::VideoCapture& cap
 )
 {
-    if (cv::CV_VERSION_MAJOR >= 3)
+    if (CV_VERSION_MAJOR >= 3)
     {
         // can use smrt or shrd ptr for optim
         return cst::DBL_INFINITE;
@@ -66,14 +66,14 @@ int videoMaxFrame(
     const int bitrate = cap.get(cv::CAP_PROP_BITRATE);
     // 1Gbytes = 1073741824bits
     // TODO check if cast is ok
-    return (int) std::div_t(2147483648, bitrate).quot * fps;
+    return std::div( 2147483648, bitrate).quot * fps; // check if pb of overflow
 }
 
 int videoMaxFrame(
     const cv::VideoWriter& writer
 )
 {
-    if (cv::CV_VERSION_MAJOR >= 3)
+    if (CV_VERSION_MAJOR >= 3)
     {
         // can use smrt or shrd ptr for optim
         return cst::DBL_INFINITE;
@@ -83,16 +83,18 @@ int videoMaxFrame(
     const int bitrate = writer.get(cv::CAP_PROP_BITRATE);
     // 1Gbytes = 1073741824bits
     // TODO check if cast is ok
-    return (int) std::div_t(2147483648, bitrate).quot * fps;
+    return std::div(2147483648, bitrate).quot * fps;
 }
 
 /// -------------------------
 /// Median computation functions 
 
-// can be an int or a str
-template <typename CAP_INPUT>;
-template <typename MEDIAN>;
+// // can be an int or a str
+// template <typename CAP_INPUT>
+// // can be anything
+// template <typename MEDIAN>
 
+template <typename MEDIAN> 
 MEDIAN getMedian(std::vector<MEDIAN> elements) {
 	nth_element(
         elements.begin(), 
@@ -137,14 +139,14 @@ cv::Mat compute_median(std::vector<cv::Mat> vec) {
 }
 
 cv::Mat computeMedianFrame(
-	const cv::VideoCapture& cap,
+	cv::VideoCapture& cap,
 	cv::Mat& frame,
 	const bool& working=true,
-    int& nFrames = 25
+    int nFrames = 25
 )
 {
 	// Set the parameters
-    nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+    nFrames = std::min(nFrames, (int) cap.get(cv::CAP_PROP_FRAME_COUNT));
 	std::vector<cv::Mat> frames;
 
 	// Randomly select nFrames frames
@@ -180,15 +182,15 @@ void colorBlending(
     const cv::Mat& background,
     const cv::Mat& alpha, 
     cv::Mat& outImage, 
-    const auto& BGR = clrs::RED,
+    const cv::Scalar& BGR = clrs::RED,
     const double& cover = 0.25
 )
 {
     // Check if needs to convert the images to 3 channels of 32 bit float
     // foreground.convertTo(foreground, CV_32FC3);
     // background.convertTo(background, CV_32FC3);
-    cv:Size matSize= alpha.size();
-    cv::Mat foreground(matSize[0], matSize[1], CV_8UC3, BGR);
+    const cv::Size matSize= alpha.size();
+    cv::Mat foreground(matSize.height, matSize.width, CV_8UC3, BGR);
 
     // Find the total number of pixels in the images (assuming 2D matrices)
     int numberOfPixels = foreground.rows * foreground.cols * foreground.channels();
@@ -251,7 +253,7 @@ cv::Mat initAlphaFrame(
     // Read the alpha frame
     auto alpha = cv::imread(alphaStr);
     // Resize the alpha frame
-    resize(alpha, alpha, frameResize, INTER_LINEAR);
+    resize(alpha, alpha, frameResize, cv::INTER_LINEAR);
     // Normalize the alpha mask to keep intensity between 0 and 1
     alpha.convertTo(alpha, CV_32FC3, 1.0/255);
     return alpha;
@@ -285,46 +287,67 @@ int main(int argc, char const *argv[])
     }
 
     // set the parameters to use
-    cv::Mat frame, dframe, rszd_frame, bckgd_frame, medianFrame, grayMedianFrame;
-    const cv::Mat color_overlay(cv::Scalar())
+    cv::Mat frame, dframe, rszd_frame, medianFrame;
+    const cv::Mat color_overlay(cv::Scalar(0,0,255));
     const std::string window_name = "frame";
-    cv::namedWindow(window_name) // create window
+    cv::namedWindow(window_name); // create window
 
-    // TODO add a taskbar to change threshold and test
-    // create taskbar for the diff threshold
-    const double max_threshold = 255;
-    double thr_slider;
-    const std::string trackbar_name = "diff threshold";
-    sprintf(trackbar_name, " threshold x %d", max_threshold);
-    cv::createTrackbar(
-        trackbar_name, 
-        window_name, 
-        &thr_slider, 
-        max_threshold, 
-        cv::threshold
-    )
+    // ------ TODO add a taskbar to change threshold and test ------
 
-    // create the taskbar for the overlay power
-    const int max_overlay = 255.;
-    double overlay_slider;
-    const std::string overlay_trackbar_name = "overlay threshold";
-    sprintf(
-        overlay_trackbar_name, 
-        window_name,
-        &overlay_slider,
-        max_overlay,
-        cv::addWeighted
-    );
+    // // function for threshold trackbar callback
+    // void thr_trackbar(int, void*)
+    // {
+    //     threshold(dframe, dframe, thr_slider, 255, cv::THRESH_BINARY);
+    // }
+    // // create taskbar for the diff threshold
+    const auto max_threshold = 255.;
+    auto thr_slider = 30;
+    // char*  trackbar_name = "diff threshold"; // check if possible to add const
+    // sprintf(trackbar_name, " threshold x %d", max_threshold);
+    // cv::createTrackbar(
+    //     trackbar_name, 
+    //     window_name, 
+    //     &thr_slider, 
+    //     max_threshold, 
+    //     thr_trackbar
+    // );
+
+    // // create the taskbar for the overlay power
+    const auto max_overlay = 255.;
+    auto overlay_slider = 0.3;
+    // char* overlay_trackbar_name = "overlay threshold";
+    // sprintf(overlay_trackbar_name, "overlay x %d", max_overlay);
+    // cv::createTrackbar(  
+    //     overlay_trackbar_name, 
+    //     window_name,
+    //     &overlay_slider,
+    //     max_overlay,
+    //     cv::addWeighted
+    // );
+
+    const std::map<std::string, int> algos = 
+    {
+        {"KNN", 0},
+        {"MOG2", 1},
+        {"CNT", 2},
+        {"GMG", 3},
+        {"GSOC", 4},
+        {"LSBP", 5},
+        {"MOG", 6},
+        {"cudaFGD", 7},
+        {"cudaGMG", 8},
+        {"cudaMOG", 9},
+    };
 
     // Define the capture and input
     std::cout << "The input is " << parser.get<std::string>("input") << std::endl;
-    const auto cap = initVideoCap(parser.get<std::string>("input"));
+    auto cap = initVideoCap(parser.get<std::string>("input"));
 
     // Define way to get element, background priority
     if (parser.has("alpha"))
     {
         // Init alpha frames
-        auto alpha = initAlphaFrame(
+        const auto alpha = initAlphaFrame(
             parser.get<std::string>("alpha")
         );
         const bool use_alpha = true;
@@ -353,15 +376,50 @@ int main(int argc, char const *argv[])
             // TODO check other algos or add to diff
             std::cout << "No background frame given but algo given,\n"
                       << "so initiating background subtractor" << std::endl;
-            cv::Ptr<BackgroundSubtractor> pBackSub;
-            if (parser.get<std::string>("algo") == "MOG2")
-                pBackSub = cv::createBackgroundSubtractorMOG2();
-            else
-                pBackSub = cv::createBackgroundSubtractorKNN();
 
+            //create Background Subtractor objects
+            cv::Ptr<cv::BackgroundSubtractor> pBackSub;
+
+            switch (algos.at(parser.get<std::string>("algo")))
+            {
+            case 0:
+                pBackSub = cv::createBackgroundSubtractorMOG2();
+                break;
+            case 1:
+                pBackSub = cv::createBackgroundSubtractorKNN();
+                break;
+            // case 2:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorCNT();
+            //     break;
+            // case 3:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorGMG();
+            //     break;
+            // case 4:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorMGSOC();
+            //     break;
+            // case 5:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorLSBP();
+            //     break;
+            // case 6:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorMOG();
+            //     break;
+            // case 7:
+            //     pBackSub = cv::cuda::createBackgroundSubtractorFGD();
+            //     break;
+            // case 8:
+            //     pBackSub = cv::cuda::createBackgroundSubtractorGMG();
+            //     break;
+            // case 9:
+            //     pBackSub = cv::cuda::createBackgroundSubtractorMOG();
+            //     break;
+            default:
+                std::cerr << "No algo correct algo was given, you can choose among :\n"
+                        << "MOG2, KNN / don't work -> CNT,GMG, GSOC, SBP, MOG, cudaFGD, cudaGMG, cudaMOG" << std::endl;
+                return -1;
+            }
             const bool use_background = false;
         }
-        else
+        else // DEFAULT PATH
         {
             medianFrame = computeMedianFrame(cap, frame, true, 60);
             const bool use_background = true;
@@ -380,7 +438,7 @@ int main(int argc, char const *argv[])
             30.,
             cv::Size(1920, 1080),
             true // isColor
-        )
+        );
 
         if (!writer.isOpened()) 
         {
@@ -416,26 +474,36 @@ int main(int argc, char const *argv[])
 		cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
         if (use_alpha)
             cv::multiply(frame, alpha, frame);
-		// Calculate absolute difference of current frame and the median frame
-		absdiff(frame, medianFrame, dframe);
+		
+        if (use_background)
+        {
+            // Calculate absolute difference of current frame and the median frame
+            absdiff(frame, medianFrame, dframe);
 
-        // TODO add the taskbar to play with threshold
-		// Threshold to binarize (will change the shadow)
-        cv::threshold(dframe, dframe, thr_slider, max_threshold, cv::THRESH_BINARY);
-        // on_trackbar(thr_slider)
-		// cv::threshold(dframe, dframe, 30, 255, cv::THRESH_BINARY);
+            // Threshold to binarize (will change the shadow)
+            cv::threshold(dframe, dframe, thr_slider, max_threshold, cv::THRESH_BINARY);
+            // on_trackbar(thr_slider)
+            // cv::threshold(dframe, dframe, 30, 255, cv::THRESH_BINARY);
 
-        cv::multiply(dframe, colored_frame, dframe)
+            // Change color of the mask (might look at smthg else)
+            cv::multiply(dframe, color_overlay, dframe);
+        }
+        else
+        {
+            //update the background model
+            pBackSub->apply(frame, dframe);
+        }
+
         // overlay the result over the source video
-        cv::addWeighted(frame, 1., dfram, overlay_slider, 0.0)
+        cv::addWeighted(frame, 1., dframe, overlay_slider, 0.0);
 
 		// Display Image
-        resize(dframe, rszd_frame, Size(640, 480), cv::INTER_LINEAR);
+        resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
 		imshow(window_name, rszd_frame);
 
         // TODO add the handle function later
         // Exit if ESC pressed
-        int key_event = waitKey(1);
+        int key_event = cv::waitKey(1);
         if(key_event == 27) 
         {
             break;
