@@ -37,7 +37,6 @@ cv::VideoCapture initVideoCap(const std::string& input)
         cap.open(cv::samples::findFileOrKeep(input));  // Open the specified video file
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return;
     return cap;
 }
 
@@ -48,7 +47,6 @@ cv::VideoCapture initVideoCap(const int& input=0)
     cap.open(input);
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return;
     return cap;
 }
 
@@ -287,10 +285,14 @@ int main(int argc, char const *argv[])
     }
 
     // set the parameters to use
-    cv::Mat frame, dframe, rszd_frame, medianFrame;
+    bool use_alpha=false, saving=false, use_background=false;
+    cv::Mat frame, dframe, rszd_frame, medianFrame, alpha;
     const cv::Mat color_overlay(cv::Scalar(0,0,255));
     const std::string window_name = "frame";
     cv::namedWindow(window_name); // create window
+    
+    //create Background Subtractor objects
+    cv::Ptr<cv::BackgroundSubtractor> pBackSub;
 
     // ------ TODO add a taskbar to change threshold and test ------
 
@@ -350,10 +352,10 @@ int main(int argc, char const *argv[])
         const auto alpha = initAlphaFrame(
             parser.get<std::string>("alpha")
         );
-        const bool use_alpha = true;
+        use_alpha = true;
     }
     else
-        const bool use_alpha = false;
+        use_alpha = false;
 
     if (parser.has("background"))
     {
@@ -364,7 +366,7 @@ int main(int argc, char const *argv[])
         // if image
         medianFrame = cv::imread(parser.get<std::string>("background"));
 		cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
-        const bool use_background = true;
+        use_background = true;
 
         if (use_alpha)
             cv::multiply(medianFrame, alpha, medianFrame);
@@ -376,9 +378,6 @@ int main(int argc, char const *argv[])
             // TODO check other algos or add to diff
             std::cout << "No background frame given but algo given,\n"
                       << "so initiating background subtractor" << std::endl;
-
-            //create Background Subtractor objects
-            cv::Ptr<cv::BackgroundSubtractor> pBackSub;
 
             switch (algos.at(parser.get<std::string>("algo")))
             {
@@ -443,9 +442,9 @@ int main(int argc, char const *argv[])
         if (!writer.isOpened()) 
         {
             std::cerr << "Could not open the output video file for write\n";
-            const bool saving = false;
+            saving = false;
         }
-        const bool saving = true;
+        saving = true;
     }
     else
         const bool saving = false;
@@ -495,7 +494,7 @@ int main(int argc, char const *argv[])
         }
 
         // overlay the result over the source video
-        cv::addWeighted(frame, 1., dframe, overlay_slider, 0.0);
+        cv::addWeighted(frame, 1., dframe, overlay_slider, 0.0, dframe);
 
 		// Display Image
         resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
