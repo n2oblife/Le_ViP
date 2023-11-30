@@ -56,6 +56,94 @@ void lumenCorrection(
 }
 
 
+cv::Mat initDenoise(
+    std::string& input,
+    const double& threshold = 45., // test other values
+    const bool& turnGray = true
+)
+{
+    cv::Mat frame = cv::imread(input);
+
+    if (turnGray) cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(frame, frame, cv::Size(5,5),0 );
+    cv::threshold(frame, frame, threshold, 255, cv::THRESH_BINARY);
+    cv::erode(frame,frame, cv::Mat(), cv::Point(-1,-1), 2);
+    cv::dilate(frame, frame, cv::Mat(), cv::Point(-1, -1), 2);
+
+    return frame;
+
+
+}
+
+void initDenoised(
+    cv::Mat& src_frame, 
+    cv::Mat& out_frame,
+    const double& threshold = 45., // test other values
+    const bool& turnGray = true
+)
+{
+    cv::Mat tmp(src_frame);
+    if (turnGray) cv::cvtColor(tmp, tmp, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(tmp, tmp, cv::Size(5,5),0 );
+    cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
+    cv::erode(tmp,tmp, cv::Mat(), cv::Point(-1,-1), 2);
+    cv::dilate(tmp, out_frame, cv::Mat(), cv::Point(-1, -1), 2);
+}
+
+void refineSegmentation(cv::Mat& segMask, cv::Mat& dst, const int& niters = 3)
+{
+    // Vectors to store contours and hierarchy information
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+
+    // Temporary Mat for intermediate processing
+    cv::Mat temp;
+
+    // Apply morphological dilation to the input mask
+    cv::dilate(segMask, temp, cv::Mat(), cv::Point(-1, -1), niters);
+
+    // Apply morphological erosion to the dilated mask
+    cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), niters * 2);
+
+    // Apply morphological dilation to the eroded mask
+    cv::dilate(temp, temp, cv::Mat(), cv::Point(-1, -1), niters);
+
+    // Find contours in the processed mask
+    cv::findContours(temp, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
+
+    // Create an output Mat initialized with zeros
+    dst = cv::Mat::zeros(segMask.size(), CV_8UC3);
+
+    // If there are no contours, return
+    if (contours.size() == 0)
+        return;
+
+    // Iterate through all the top-level contours to find the largest one
+    int idx = 0, largestComp = 0;
+    double maxArea = 0;
+    for (; idx >= 0; idx = hierarchy[idx][0])
+    {
+        const std::vector<cv::Point>& c = contours[idx];
+
+        // Calculate the area of the contour
+        double area = fabs(cv::contourArea(cv::Mat(c)));
+
+        // Update the information if the current area is larger than the maximum area
+        if (area > maxArea)
+        {
+            maxArea = area;
+            largestComp = idx;
+        }
+    }
+
+    // Set the color for drawing contours (in BGR format)
+    cv::Scalar color(255, 255, 255);
+
+    // Draw the largest contour on the output Mat
+    cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+}
+
+
 /// -------------------------
 /// Device init functions
 

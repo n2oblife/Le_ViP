@@ -215,9 +215,11 @@ int main(int argc, char** argv)
         refineSegments(tmp_frame, bgmask, out_frame);
 
         // Display the original video and segmented output
+        resize(bgmask, resized_tmp, Size(640, 480), INTER_NEAREST);
+        imshow("background", resized_tmp);
         resize(tmp_frame, resized_tmp, Size(640, 480), INTER_NEAREST);
-        resize(out_frame, resized_out, Size(640, 480), INTER_NEAREST);
         imshow("video", resized_tmp);
+        resize(out_frame, resized_out, Size(640, 480), INTER_NEAREST);
         imshow("segmented", resized_out);
 
         // Wait for a key press (ESC to exit, spacebar to toggle background model updating)

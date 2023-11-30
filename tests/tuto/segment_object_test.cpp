@@ -11,11 +11,8 @@
 using namespace std;
 using namespace cv;
 
-static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
+static void refineSegmentation(Mat& segMask, Mat& dst, const int& niters = 3)
 {
-    // Number of iterations for morphological operations
-    int niters = 3;
-
     // Vectors to store contours and hierarchy information
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
@@ -24,7 +21,7 @@ static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
     Mat temp;
 
     // Apply morphological dilation to the input mask
-    dilate(mask, temp, Mat(), Point(-1, -1), niters);
+    dilate(segMask, temp, Mat(), Point(-1, -1), niters);
 
     // Apply morphological erosion to the dilated mask
     erode(temp, temp, Mat(), Point(-1, -1), niters * 2);
@@ -36,7 +33,7 @@ static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
     findContours(temp, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE);
 
     // Create an output Mat initialized with zeros
-    dst = Mat::zeros(img.size(), CV_8UC3);
+    dst = Mat::zeros(segMask.size(), CV_8UC3);
 
     // If there are no contours, return
     if (contours.size() == 0)
