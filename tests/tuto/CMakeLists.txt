@@ -37,3 +37,18 @@ target_link_libraries(MedianBg PRIVATE ${OpenCV_LIBS})
 
 add_executable(Overlay alpha_blending.cpp)
 target_link_libraries(Overlay PRIVATE ${OpenCV_LIBS})
+
+add_executable(WaterShed watershed.cpp)
+target_link_libraries(WaterShed PRIVATE ${OpenCV_LIBS})
+
+add_executable(Contour find_contour.cpp)
+target_link_libraries(Contour PRIVATE ${OpenCV_LIBS})
+
+add_executable(Grab grabcut.cpp)
+target_link_libraries(Grab PRIVATE ${OpenCV_LIBS})
+
+add_executable(Canny canny_edge.cpp)
+target_link_libraries(Canny PRIVATE ${OpenCV_LIBS})
+
+add_executable(Lumen lumen_correction.cpp)
+target_link_libraries(Lumen PRIVATE ${OpenCV_LIBS})

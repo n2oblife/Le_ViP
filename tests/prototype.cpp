@@ -20,6 +20,40 @@
 
 /// ==== New functions ====
 
+void lumenCorrection(
+    cv::Mat& src_frame,
+    cv::Mat& out_frame, 
+    const bool& isColor = true
+)
+{
+    // Init variables
+    cv::Mat tmp_frame;
+    int f_transf, l_transf;
+    
+    // TODO check other cases
+    if (isColor)
+        f_transf = cv::COLOR_BGR2Lab, l_transf = cv::COLOR_Lab2BGR;
+    else 
+        std::cerr << "Frame needs to be in BGR" << std::endl;
+    
+    // READ RGB color image and convert it to Lab
+    cv::cvtColor(src_frame, tmp_frame, f_transf);
+
+    // Extract the L channel
+    std::vector<cv::Mat> lab_planes(3);
+    cv::split(tmp_frame, lab_planes);  // now we have the L image in lab_planes[0]
+
+    // apply the CLAHE algorithm to the L channel
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+    clahe->setClipLimit(4);
+    cv::Mat dst;
+    clahe->apply(lab_planes[0], tmp_frame);
+
+    // Merge the the color planes back into an Lab image
+    tmp_frame.copyTo(lab_planes[0]);
+    cv::merge(lab_planes, tmp_frame);
+    cv::cvtColor(tmp_frame, out_frame, l_transf);
+}
 
 
 /// -------------------------
@@ -36,7 +70,7 @@ cv::VideoCapture initVideoCap(const std::string& input)
     else
         cap.open(cv::samples::findFileOrKeep(input));  // Open the specified video file
 	if(!cap.isOpened())
-		std::cerr << "Error opening video file\n";
+		std::cerr << "INFO : Error opening video file\n";
     return cap;
 }
 
@@ -46,7 +80,7 @@ cv::VideoCapture initVideoCap(const int& input=0)
     // Determine the input source (camera or video file)
     cap.open(input);
 	if(!cap.isOpened())
-		std::cerr << "Error opening video file\n";
+		std::cerr << "INFO : Error opening video file\n";
     return cap;
 }
 
@@ -192,16 +226,16 @@ void colorBlending(
     int numberOfPixels = foreground.rows * foreground.cols * foreground.channels();
 
     // Get floating point pointers to the data matrices
-    float* fptr = reinterpret_cast<float*>(foreground.data);
-    float* bptr = reinterpret_cast<float*>(background.data);
-    float* aptr = reinterpret_cast<float*>(alpha.data);
-    float* outImagePtr = reinterpret_cast<float*>(outImage.data);
+    double* fptr = reinterpret_cast<double*>(foreground.data);
+    double* bptr = reinterpret_cast<double*>(background.data);
+    double* aptr = reinterpret_cast<double*>(alpha.data);
+    double* outImagePtr = reinterpret_cast<double*>(outImage.data);
 
     // Loop over all pixels ONCE (can be parallelized)
     for (int i = 0; i < numberOfPixels; i++, outImagePtr++, fptr++, aptr++, bptr++)
     {
         // Perform alpha blending equation: result = (foreground * cover*alpha) + (background * (1-cover - alpha))
-        *outImagePtr = (*fptr) * cover*(*aptr) + (*bptr) * (1 - cover - *aptr);
+        *outImagePtr = (*fptr) * cover*(*aptr) + (*bptr) * (1. - cover - *aptr);
     }
 }
 
@@ -302,7 +336,7 @@ int main(int argc, char const *argv[])
 
     /// ------------------------------------
 
-    // set the parameters to use
+    // set the parameters to use (check to init correctly)
     bool use_alpha=false, saving=false, use_background=false;
     cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, grayAlpha;
     const std::string window_name = "frame";
@@ -321,7 +355,7 @@ int main(int argc, char const *argv[])
     // }
     // // create taskbar for the diff threshold
     const auto max_threshold = 255.;
-    auto thr_slider = 64;
+    auto thr_slider = 80;
     // char*  trackbar_name = "diff threshold"; // check if possible to add const
     // sprintf(trackbar_name, " threshold x %d", max_threshold);
     // cv::createTrackbar(
@@ -336,7 +370,7 @@ int main(int argc, char const *argv[])
     const auto max_overlay = 255.;
     auto overlay_slider = 1.;
     auto bkcgnd_slider = 0.8;
-    auto rem_slider = -0.5;
+    auto rem_slider = -0.8;
     // char* overlay_trackbar_name = "overlay threshold";
     // sprintf(overlay_trackbar_name, "overlay x %d", max_overlay);
     // cv::createTrackbar(  
@@ -362,8 +396,11 @@ int main(int argc, char const *argv[])
     };
 
     // insert point to puncture
-    cv::Point puncture_zone(440, 270);
-    const int rad = 16;
+    cv::Point puncture_zone(430, 260);
+    const int rad_puncture = 16;
+
+    cv::Point puncture_check(430, 260);
+    const int rad_check = 32;
 
     /// ------------------------------------
 
@@ -379,6 +416,19 @@ int main(int argc, char const *argv[])
     // set colored overlay
     const cv::Mat color_overlay(cap_size, cap_maketype , cv::Scalar(0,0,255));
     // cv::imshow("RED", color_overlay);
+
+    // Define ROIs to split video in 4
+    const cv::Size subFrSze = {cap_size.width/2, cap_size.height/2};
+    cv::Rect topleftROI = cv::Rect(0, 0, subFrSze.width, subFrSze.height), 
+        toprightROI = cv::Rect(subFrSze.width, 0, subFrSze.width, subFrSze.height), 
+        downleftROI = cv::Rect(0, subFrSze.height, subFrSze.width, subFrSze.height), 
+        downrightROI = cv::Rect(subFrSze.width, subFrSze.height, subFrSze.width, subFrSze.height);
+
+    cv::Mat topleftFr = cv::Mat(frame, topleftROI), 
+        toprightFr = cv::Mat(frame, toprightROI), 
+        downleftFr = cv::Mat(frame, downleftROI), 
+        downrightFr = cv::Mat(frame, downrightROI);
+
 
     // Define way to get element, background priority
     if (parser.has("alpha"))
@@ -408,6 +458,7 @@ int main(int argc, char const *argv[])
         // bckgd_cap.open(bckgd_frame);
         // if image
         medianFrame = cv::imread(parser.get<std::string>("background"));
+        lumenCorrection(medianFrame, medianFrame);
         std::cout << "BACKGROUND INFO BEFORE PREPROCESSING : " 
                   << medianFrame.size << " & "
                   << medianFrame.type() << std::endl;
@@ -428,19 +479,22 @@ int main(int argc, char const *argv[])
             // TODO check other algos or add to diff
             std::cout << "No background frame given but algo given,\n"
                       << "so initiating background subtractor" << std::endl;
-
+            std::cout << "ALGO IS : " << parser.get<std::string>("algo") << "\n"
+            << "HENCE WE HAVE THE CASE " << algos.at(parser.get<std::string>("algo")) << std::endl;
             switch (algos.at(parser.get<std::string>("algo")))
             {
             case 0:
-                pBackSub = cv::createBackgroundSubtractorMOG2();
+                pBackSub = cv::createBackgroundSubtractorKNN();
                 break;
             case 1:
-                pBackSub = cv::createBackgroundSubtractorKNN();
+                pBackSub = cv::createBackgroundSubtractorMOG2();
+                std::cout << "BACKGROUND SUB INFO : OK " << std::endl;
                 break;
             // case 2:
             //     pBackSub = cv::bgsegm::createBackgroundSubtractorCNT();
             //     break;
             // case 3:
+            // when using GMG use pmorphologyEx to denoise(good edges)
             //     pBackSub = cv::bgsegm::createBackgroundSubtractorGMG();
             //     break;
             // case 4:
@@ -462,8 +516,9 @@ int main(int argc, char const *argv[])
             //     pBackSub = cv::cuda::createBackgroundSubtractorMOG();
             //     break;
             default:
-                std::cerr << "No algo correct algo was given, you can choose among :\n"
-                        << "MOG2, KNN / don't work -> CNT,GMG, GSOC, SBP, MOG, cudaFGD, cudaGMG, cudaMOG" << std::endl;
+                std::cerr << "INFO : No algo correct algo was given, you can choose among :\n"
+                          << "MOG2, KNN,  / \n"
+                          << "don't work -> CNT,GMG, GSOC, SBP, MOG, cudaFGD, cudaGMG, cudaMOG" << std::endl;
                 return -1;
             }
             use_background = false;
@@ -473,7 +528,8 @@ int main(int argc, char const *argv[])
             // medianFrame = computeMedianFrame(cap, frame, false, true, 30);
             cap.set(cv::CAP_PROP_POS_FRAMES, 180);
             cap >> medianFrame;
-            cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+            lumenCorrection(medianFrame, medianFrame);
+            cap.set(cv::CAP_PROP_POS_FRAMES, 260);
             cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
             use_background = true;
             if (use_alpha)
@@ -481,28 +537,33 @@ int main(int argc, char const *argv[])
                 std::cout << "size of medianFrame " << medianFrame.size << std::endl;
                 std::cout << "size of alpha " << alpha.size << std::endl;
                 cv::multiply(medianFrame, grayAlpha, medianFrame);
+                std::cout << "MEDIAN MAKETYPE : " << medianFrame.type() << std::endl;
+                cv::resize(medianFrame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+                // cv::imshow("median", rszd_frame);
             }
         }
     }
-    std::cout << "MEDIAN MAKETYPE : " << medianFrame.type() << std::endl;
-    cv::resize(medianFrame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-    // cv::imshow("median", rszd_frame);
+
 
     // Define the output where to save result
     if (parser.has("output"))
     {
+        std::cout << " WRITER INFO " 
+        << parser.get<std::string>("output")  << " & "
+        << cv::VideoWriter::fourcc('M','J','P','G') << " & "
+        << cap.get(cv::CAP_PROP_XI_FRAMERATE) << " & "
+        << cap_size << std::endl; 
         writer.open(
             parser.get<std::string>("output"),
-            cv::CAP_ANY, // default api
             cv::VideoWriter::fourcc('M','J','P','G'),
-            cap.get(cv::CAP_PROP_XI_FRAMERATE),
+            30.,
             cap_size,
             true // isColor
         );
 
         if (!writer.isOpened()) 
         {
-            std::cerr << "Could not open the output video file for write\n";
+            std::cerr << "INFO : Could not open the output video file for write\n";
             const bool saving = false;
         }
         const bool saving = true;
@@ -515,14 +576,18 @@ int main(int argc, char const *argv[])
 
     /// ------------------------------------
 
-
+    cv::Mat lab_frame;
     // TODO fix use of run time bool => find better way !!
     // loop over all frames
     for (;;)
     {
         // read frames 
         cap >> frame;
+        lumenCorrection(frame, frame);
+        // cv::resize(lab_frame, lab_frame, cv::Size(640, 480), cv::INTER_LINEAR);
         frame.copyTo(fin_frame);
+        // Convert current frame to grayscale
+		cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
 
         // TODO check this later
         // // do smthg if needs empty
@@ -533,9 +598,7 @@ int main(int argc, char const *argv[])
         // }
 
 
-        // Convert current frame to grayscale
 
-		cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
         // std::cout << " Frame infos : " << frame.size << frame.type() << std::endl;
         if (use_alpha)
             cv::multiply(frame, grayAlpha, frame);
@@ -555,8 +618,13 @@ int main(int argc, char const *argv[])
         }
         else
         {
-            //update the background model
-            pBackSub->apply(frame, dframe);
+            // std::cout << "APLYING THE SUBTRACTION " << std::endl;
+            //update the background model wirth substraction
+            pBackSub->apply(frame, dframe, 0.5);
+
+            // some other algos
+            // cv::grabCut()
+            cv::cvtColor(dframe, dframe, cv::COLOR_GRAY2BGR);
         }
 
         // overlay the result over the source video
@@ -564,16 +632,19 @@ int main(int argc, char const *argv[])
         /// TROP LENTS !!!!!!
         cv::addWeighted(fin_frame, 1, dframe, rem_slider, 0.0, fin_frame);
         cv::multiply(dframe, color_overlay, dframe);
-        cv::circle(fin_frame, puncture_zone, rad, cv::Scalar(0,255,0), 2);
+        cv::circle(fin_frame, puncture_zone, rad_puncture, cv::Scalar(0,255,0), 2);
+        cv::circle(fin_frame, puncture_check, rad_check, cv::Scalar(0,255,0), 2);
         cv::addWeighted(fin_frame, bkcgnd_slider, dframe, overlay_slider, 0.0, fin_frame);
-
 
 		// // Display Image
         // cv::resize(frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
         // cv::imshow("Test", rszd_frame);
         cv::resize(fin_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
 		if (! parser.has("hide"))
+        {
+            // cv::imshow("lab", lab_frame);
             cv::imshow(window_name, rszd_frame);
+        }
         if(saving)
             writer.write(fin_frame);
 
