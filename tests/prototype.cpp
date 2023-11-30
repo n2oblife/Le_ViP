@@ -13,7 +13,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
-
+// a change
 
 
 /// --------------------- Function definitions ---------------------
@@ -71,8 +71,6 @@ cv::Mat initDenoise(
     cv::dilate(frame, frame, cv::Mat(), cv::Point(-1, -1), 2);
 
     return frame;
-
-
 }
 
 void initDenoised(
