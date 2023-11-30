@@ -18,6 +18,9 @@
 /// --------------------- Function definitions ---------------------
 
 /// ==== New functions ====
+// TODO overload functions for vectorization because of splitting in 4
+// multi thread within function and synced ?
+// (we will have to discuss the archi of app, if it will get the 4 cap or just 1)
 
 void lumenCorrection(
     cv::Mat& src_frame,
@@ -55,8 +58,8 @@ void lumenCorrection(
 }
 
 
-cv::Mat initDenoise(
-    std::string& input,
+cv::Mat initDenoised(
+    const std::string& input,
     const double& threshold = 45., // test other values
     const bool& turnGray = true
 )
@@ -76,6 +79,7 @@ void initDenoised(
     cv::Mat& src_frame, 
     cv::Mat& out_frame,
     const double& threshold = 45., // test other values
+    const int& niters = 2,
     const bool& turnGray = true
 )
 {
@@ -83,21 +87,29 @@ void initDenoised(
     if (turnGray) cv::cvtColor(tmp, tmp, cv::COLOR_BGR2GRAY);
     cv::GaussianBlur(tmp, tmp, cv::Size(5,5),0 );
     cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
-    cv::erode(tmp,tmp, cv::Mat(), cv::Point(-1,-1), 2);
-    cv::dilate(tmp, out_frame, cv::Mat(), cv::Point(-1, -1), 2);
+    cv::erode(tmp,tmp, cv::Mat(), cv::Point(-1,-1), niters);
+    cv::dilate(tmp, out_frame, cv::Mat(), cv::Point(-1, -1), niters);
 }
 
-void refineSegmentation(cv::Mat& segMask, cv::Mat& dst, const int& niters = 3)
+void refineSegmentation(
+    cv::Mat& segMask, 
+    cv::Mat& dst, 
+    const int& niters = 3,
+    const cv::Scalar color = cv::Scalar(255,255,255)
+)
 {
+    // Temporary Mat for intermediate processing
+    cv::Mat temp;
+    // check if frame is color
+    if (segMask.type() == 16) cv::cvtColor(segMask, temp, cv::COLOR_BGR2GRAY);
+
     // Vectors to store contours and hierarchy information
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
 
-    // Temporary Mat for intermediate processing
-    cv::Mat temp;
 
     // Apply morphological dilation to the input mask
-    cv::dilate(segMask, temp, cv::Mat(), cv::Point(-1, -1), niters);
+    cv::dilate(temp, temp, cv::Mat(), cv::Point(-1, -1), niters);
 
     // Apply morphological erosion to the dilated mask
     cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), niters * 2);
@@ -133,11 +145,31 @@ void refineSegmentation(cv::Mat& segMask, cv::Mat& dst, const int& niters = 3)
         }
     }
 
-    // Set the color for drawing contours (in BGR format)
-    cv::Scalar color(255, 255, 255);
-
     // Draw the largest contour on the output Mat
     cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+}
+
+// void biggestContour(
+//     cv::Mat& src_frame, // must go through initDenoised first
+//     cv::Mat& out_frame
+// )
+// {
+//     std::vector<std::vector<cv::Point> > contours;
+//     cv::findContours(src_frame, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+//     // imutils::grabContour();
+//     cv::drawContours(out_frame, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+
+// }
+
+void splitTo4(
+    const cv::Mat& src_frame,
+    const std::vector<cv::Rect>& rectangles,
+    std::vector<cv::Mat>& splitted_frames
+)
+{
+    assert(rectangles.size() == splitted_frames.size());
+    for (int pos=0; pos<rectangles.size(); pos++) 
+        splitted_frames[pos] = cv::Mat(src_frame, rectangles[pos]);
 }
 
 
@@ -504,15 +536,24 @@ int main(int argc, char const *argv[])
 
     // Define ROIs to split video in 4
     const cv::Size subFrSze = {cap_size.width/2, cap_size.height/2};
-    cv::Rect topleftROI = cv::Rect(0, 0, subFrSze.width, subFrSze.height), 
+    const cv::Rect topleftROI = cv::Rect(0, 0, subFrSze.width, subFrSze.height), 
         toprightROI = cv::Rect(subFrSze.width, 0, subFrSze.width, subFrSze.height), 
         downleftROI = cv::Rect(0, subFrSze.height, subFrSze.width, subFrSze.height), 
         downrightROI = cv::Rect(subFrSze.width, subFrSze.height, subFrSze.width, subFrSze.height);
-
+    
     cv::Mat topleftFr = cv::Mat(frame, topleftROI), 
         toprightFr = cv::Mat(frame, toprightROI), 
         downleftFr = cv::Mat(frame, downleftROI), 
         downrightFr = cv::Mat(frame, downrightROI);
+
+    const std::vector<cv::Rect> rectangles ({topleftROI, toprightROI, downleftROI, downrightROI});
+    std::vector<cv::Mat> splitted(4), dvector(4);
+    splitTo4(frame, rectangles, splitted);
+
+    // cv::imshow("topleft", splitted[0]);
+    // cv::imshow("topright", splitted[1]);
+    // cv::imshow("bottomleft", splitted[2]);
+    // cv::imshow("bottomright", splitted[3]);
 
 
     // Define way to get element, background priority
@@ -543,7 +584,7 @@ int main(int argc, char const *argv[])
         // bckgd_cap.open(bckgd_frame);
         // if image
         medianFrame = cv::imread(parser.get<std::string>("background"));
-        lumenCorrection(medianFrame, medianFrame);
+        // lumenCorrection(medianFrame, medianFrame);
         std::cout << "BACKGROUND INFO BEFORE PREPROCESSING : " 
                   << medianFrame.size << " & "
                   << medianFrame.type() << std::endl;
@@ -613,7 +654,7 @@ int main(int argc, char const *argv[])
             // medianFrame = computeMedianFrame(cap, frame, false, true, 30);
             cap.set(cv::CAP_PROP_POS_FRAMES, 180);
             cap >> medianFrame;
-            lumenCorrection(medianFrame, medianFrame);
+            // lumenCorrection(medianFrame, medianFrame);
             cap.set(cv::CAP_PROP_POS_FRAMES, 260);
             cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
             use_background = true;
@@ -661,14 +702,14 @@ int main(int argc, char const *argv[])
 
     /// ------------------------------------
 
-    cv::Mat lab_frame;
+    cv::Mat lab_frame, defineSegm, tmp_frame;
     // TODO fix use of run time bool => find better way !!
     // loop over all frames
     for (;;)
     {
         // read frames 
         cap >> frame;
-        lumenCorrection(frame, frame);
+        // lumenCorrection(frame, frame);
         // cv::resize(lab_frame, lab_frame, cv::Size(640, 480), cv::INTER_LINEAR);
         frame.copyTo(fin_frame);
         // Convert current frame to grayscale
@@ -711,6 +752,27 @@ int main(int argc, char const *argv[])
             // cv::grabCut()
             cv::cvtColor(dframe, dframe, cv::COLOR_GRAY2BGR);
         }
+
+        // this part groups the biggest point cloud into one clean object
+        // pb not always the tip
+        // should take the 2-3 biggest and group to have the whole
+        // for (int i=0; i<2; i++)
+        // {
+
+
+        // }
+        cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+        cv::imshow("dframe", rszd_frame); 
+
+        splitTo4(dframe, rectangles, dvector);
+        for(int pos=0; pos<rectangles.size(); pos++)
+            refineSegmentation(dvector[pos], dvector[pos], 2, cv::Scalar(255,0,0));
+
+        // refineSegmentation(dframe, defineSegm, 2, cv::Scalar(255,0,0));
+        // cv::addWeighted(fin_frame, 1, defineSegm, rem_slider, 0.0, tmp_frame);
+        // cv::addWeighted(fin_frame, 0.3, defineSegm, overlay_slider, 0.0, defineSegm);
+        // cv::resize(defineSegm, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+        cv::imshow("refined", dvector[0]); 
 
         // overlay the result over the source video
         // cv::cvtColor(frame, frame, cv::COLOR_GRAY2BGR); // just copy before ? !!!
