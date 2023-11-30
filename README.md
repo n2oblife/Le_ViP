@@ -1,4 +1,4 @@
-# Live Video Processing (LeVIP)
+# Live Video Processing (Le_ViP)
 
 ## Introduction
 This repository is the baseline of a C++ live video processing app. It uses [OpenCV](https://opencv.org/) to process images and works on both Windows and Linux.
