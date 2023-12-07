@@ -95,13 +95,8 @@ void initDenoised(
 void refineSegmentation(
     cv::Mat& segMask, 
     cv::Mat& dst, 
-    double& last_big,
-    const cv::Mat& last_mat,
-    bool& refresh,
     const int& niters = 3,
-    const double& percent = 0.6,
-    const cv::Scalar& color = cv::Scalar(255,255,255),
-    const bool& enface=false
+    const cv::Scalar& color = cv::Scalar(255,255,255)
 )
 {
     // Temporary Mat for intermediate processing
@@ -154,34 +149,11 @@ void refineSegmentation(
             largestComp = idx;
         }
     }
-    // if (show) 
-    // {
-    //     std::cout << "MAX AREA : " << maxArea << std::endl;
-    //     std::cout << "LAST BIG AREA : " << last_big << std::endl;
 
-    // }
-    if (enface)
-    {
-        // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-        if (maxArea > (percent * last_big) )
-        {
-            // Draw the largest contour on the output Mat
-            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-            // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
-            if (24000. > maxArea) last_big = maxArea;
-            refresh = true;
-        }    
-        else 
-        {
-            last_mat.copyTo(dst);
-            refresh = false;
-        }
-    }
-    else 
-    {
-        cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-        refresh = true;
-    }
+    // Draw the largest contour on the output Mat
+    cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
+
 }
 
 // need to be gray
@@ -303,67 +275,6 @@ void splitTo4(
         splitted_frames[pos] = cv::Mat(src_frame, rectangles[pos]);
 }
 
-// TODO check the function, needs debug
-void imageBipIt(
-    const cv::Mat& extractFrame,
-    cv::Mat& out_frame,
-    const cv::Rect& ROI,
-    const cv::Scalar& color
-)
-{
-    cv::Mat checkingFrame = extractFrame(ROI);
-    cv::MatIterator_<cv::Vec3b> it; // = src_it.begin<cv::Vec3b>();
-    for (it = checkingFrame.begin<cv::Vec3b>(); it != checkingFrame.end<cv::Vec3b>(); ++it)
-    {
-        if (! ((*it)[2]==0))
-        {
-            cv::rectangle(out_frame, ROI, color, 3);
-            break;
-        }
-        else cv::rectangle(out_frame, ROI, cv::Scalar(0,0,0), 3);
-
-    }
-}
-
-// Define a pixel
-typedef cv::Point_<uint8_t> Pixel;
-cv::Point_<uint8_t> pt;
-
-// struct ImageBip
-// {
-//     void Bipping(Pixel& pixel, const int* position) const 
-//     {
-//         // perform the check with the pixel
-//         if (pixel[2]==0)
-
-//     }
-// }
-
-// takes the non zero pixels from a frame (bound to a masked zone) 
-// and bips if they are inside the box
-void maskBip(
-    const cv::Mat& mask,
-    cv::Mat& plot_frame,
-    const cv::Rect& ROI,
-    const cv::Rect& bippinBox,
-    const cv::Scalar& color = cv::Scalar(0,255,0),
-    const bool& alreadyGray = false
-)
-{
-    cv::Mat locations, tmp;
-    if ( !(alreadyGray)) cv::cvtColor(mask, tmp, cv::COLOR_BGR2GRAY);
-    cv::findNonZero(tmp, locations);
-    cv::MatIterator_<cv::Point> it;
-    for ( it = locations.begin<cv::Point>(); it != locations.end<cv::Point>(); ++it )
-    {
-        if ( (*it).inside(ROI) )
-        {
-            cv::rectangle(plot_frame, bippinBox, color, 3);
-            break;
-        }
-        else cv::rectangle(plot_frame, bippinBox, cv::Scalar(0,0,0), 3);
-    }
-}
 
 /// -------------------------
 /// ==== Lib functions ====
@@ -616,17 +527,6 @@ cv::Mat initAlphaFrame(
     return alpha;
 }
 
-/// =============================================================
-/// --------------------- Region definition ---------------------
-/// =============================================================
-
-// #define lumen
-// #define predenoising
-#define postdenoising
-#define refining
-// #define showIntermediate
-#define checkingBox
-
 /// ================================================
 /// --------------------- Main ---------------------
 /// ================================================
@@ -660,12 +560,9 @@ int main(int argc, char const *argv[])
     /// ------------------------------------
 
     // set the parameters to use (check to init correctly)
-    bool use_alpha=false, saving=false, use_background=false, use_algo=false, 
-    hide=false, punctured=false, refresh=true, scnd_step=false;
-    cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, 
-    grayAlpha, bckg_frame, algo_frame, refine_frame, stopping_frame;
+    bool use_alpha=false, saving=false, use_background=false;
+    cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, grayAlpha;
     const std::string window_name = "frame";
-    double last_big=0., percent = 0.8 ;
     cv::VideoWriter writer;
     cv::namedWindow(window_name); // create window
     
@@ -726,12 +623,13 @@ int main(int argc, char const *argv[])
     const int rad_puncture = 24;
 
     // init of the validation frame after init of frame and video capture
-    cv::Point puncture_check(430, 260);
-    const int rad_check = 48;
+    // cv::Point puncture_check(430, 260);
+    // const int rad_check = 48;
 
     /// ------------------------------------
 
     // Define the capture and input
+    std::cout << "The input is " << parser.get<std::string>("input") << std::endl;
     auto cap = initVideoCap(parser.get<std::string>("input"));
     cap >> frame;
     const auto cap_maketype = frame.type(); 
@@ -741,62 +639,38 @@ int main(int argc, char const *argv[])
     );
     // set colored overlay
     const cv::Mat color_overlay(cap_size, cap_maketype , cv::Scalar(0,0,255));
+    // cv::imshow("RED", color_overlay);
 
     // Define ROIs to split video in 4
     const cv::Size subFrSze = {cap_size.width/2, cap_size.height/2};
     const cv::Rect topleftROI = cv::Rect(0, 0, subFrSze.width, subFrSze.height), 
-        toprightupROI = cv::Rect(subFrSze.width, 0, subFrSze.width, 0.5*subFrSze.height), 
-        toprightdownROI = cv::Rect(subFrSze.width, 0.5*subFrSze.height, subFrSze.width, 0.5*subFrSze.height), 
+        toprightROI = cv::Rect(subFrSze.width, 0, subFrSze.width, subFrSze.height), 
         downleftROI = cv::Rect(0, subFrSze.height, subFrSze.width, subFrSze.height), 
         downrightROI = cv::Rect(subFrSze.width, subFrSze.height, subFrSze.width, subFrSze.height);
     
-    const std::map<int, cv::Rect> rois = 
-    {
-        {0, topleftROI},
-        {1, toprightdownROI},
-        {2, toprightupROI},
-        // {3, downleftROI},
-        {3, downrightROI},
-    };
-
     cv::Mat topleftFr = cv::Mat(frame, topleftROI), 
-        toprightupFr = cv::Mat(frame, toprightupROI),
-        toprightdownFr = cv::Mat(frame, toprightdownROI),  
+        toprightFr = cv::Mat(frame, toprightROI), 
         downleftFr = cv::Mat(frame, downleftROI), 
         downrightFr = cv::Mat(frame, downrightROI);
 
-    // const std::vector<cv::Rect> rectangles ({topleftROI, toprightdownROI, toprightupROI, downleftROI, downrightROI});
-    const std::vector<cv::Rect> rectangles ({topleftROI, toprightdownROI, toprightupROI, downrightROI});
-    std::vector<cv::Mat> splitted(rois.size()), dvector(rois.size()), last_vector(rois.size()); // init splitted vector and transformed vector
-    int roiToProcess = 2;
+    const std::vector<cv::Rect> rectangles ({topleftROI, toprightROI, downleftROI, downrightROI});
+    std::vector<cv::Mat> splitted(4), dvector(4);
     splitTo4(frame, rectangles, splitted);
 
     const cv::Rect validation = cv::Rect(
-        puncture_zone.x - rad_puncture, 
-        puncture_zone.y - rad_puncture,
-        2*rad_puncture,
-        2*rad_puncture
+        puncture_zone.x, 
+        puncture_zone.y,
+        rad_puncture,
+        rad_puncture
     );
     cv::Mat validationFrame = frame(validation);
 
-    const cv::Rect caution = cv::Rect(
-        1.7 * subFrSze.width,
-        1.1*subFrSze.height,
-        0.05*subFrSze.width,
-        0.4*subFrSze.height
-    );
-    cv::Mat warningFrame = frame(caution);
 
-    const cv::Rect forbiden = cv::Rect(
-        1.75 * subFrSze.width,
-        1.05*subFrSze.height,
-        0.25 * subFrSze.width,
-        0.5*subFrSze.height
-    );
-    cv::Mat forbidenFrame = frame(forbiden);
+    // cv::imshow("topleft", splitted[0]);
+    // cv::imshow("topright", splitted[1]);
+    // cv::imshow("bottomleft", splitted[2]);
+    // cv::imshow("bottomright", splitted[3]);
 
-    // used for the rectangle bipping
-    cv::MatIterator_<cv::Vec3b> it, otherIt; // = src_it.begin<cv::Vec3b>();
 
     // Define way to get element, background priority
     if (parser.has("alpha"))
@@ -810,73 +684,105 @@ int main(int argc, char const *argv[])
         cv::cvtColor(alpha, grayAlpha, cv::COLOR_BGR2GRAY);
         use_alpha = true;
     }
+    else
+        use_alpha = false;
+
+    std::cout << "CAP MAKETYPE : " << cap_maketype << std::endl;
+    std::cout << "ALPHA MAKETYPE : " << alpha.type() << std::endl;
+    std::cout << "GRAY ALPHA MAKETYPE : " << grayAlpha.type() << std::endl;
+
 
     if (parser.has("background"))
     {
+        // TODO check if background is video or image
+        // if video
+        // auto bckgd_cap = initVideoCap(parser.get<std::string>("background"));
+        // bckgd_cap.open(bckgd_frame);
+        // if image
         medianFrame = cv::imread(parser.get<std::string>("background"));
-        #ifdef lumen
-        lumenCorrection(medianFrame, medianFrame);
-        #endif
-       
+        // lumenCorrection(medianFrame, medianFrame);
+        std::cout << "BACKGROUND INFO BEFORE PREPROCESSING : " 
+                  << medianFrame.size << " & "
+                  << medianFrame.type() << std::endl;
         cv::resize(medianFrame, medianFrame, cap_size,  cv::INTER_LINEAR);
 		cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
+        std::cout << "BACKGROUND INFO AFTER PREPROCESSING : " 
+            << medianFrame.size << " & "
+            << medianFrame.type() << std::endl;
+        use_background = true;
 
         if (use_alpha)
             cv::multiply(medianFrame, grayAlpha, medianFrame);
-
-        // check if it can be colored
-        // cv::cvtColor(medianFrame, medianFrame, cv::COLOR_GRAY2BGR);
-
-        use_background = true;
     }
-    else 
+    else
     {
-
-    }
-
-    if (parser.has("algo"))
-    {
-        // TODO check other algos or add to diff
-        switch (algos.at(parser.get<std::string>("algo")))
+        if (parser.has("algo"))
         {
-        case 0:
-            pBackSub = cv::createBackgroundSubtractorKNN(700, 400, false);
-            break;
-        case 1:
-            pBackSub = cv::createBackgroundSubtractorMOG2(1000, 200., false);
-            break;
-        // case 2:
-        //     pBackSub = cv::bgsegm::createBackgroundSubtractorCNT();
-        //     break;
-        // case 3:
-        // when using GMG use pmorphologyEx to denoise(good edges)
-        //     pBackSub = cv::bgsegm::createBackgroundSubtractorGMG();
-        //     break;
-        // case 4:
-        //     pBackSub = cv::bgsegm::createBackgroundSubtractorMGSOC();
-        //     break;
-        // case 5:
-        //     pBackSub = cv::bgsegm::createBackgroundSubtractorLSBP();
-        //     break;
-        // case 6:
-        //     pBackSub = cv::bgsegm::createBackgroundSubtractorMOG();
-        //     break;
-        // case 7:
-        //     pBackSub = cv::cuda::createBackgroundSubtractorFGD();
-        //     break;
-        // case 8:
-        //     pBackSub = cv::cuda::createBackgroundSubtractorGMG();
-        //     break;
-        // case 9:
-        //     pBackSub = cv::cuda::createBackgroundSubtractorMOG();
-        //     break;
-        default:
-            std::cerr << "INFO : No algo correct algo was given, you can choose among :\n"
-                        << "MOG2, KNN,  / \n"
-                        << "don't work -> CNT,GMG, GSOC, SBP, MOG, cudaFGD, cudaGMG, cudaMOG" << std::endl;
-            return -1;
+            // TODO check other algos or add to diff
+            std::cout << "No background frame given but algo given,\n"
+                      << "so initiating background subtractor" << std::endl;
+            std::cout << "ALGO IS : " << parser.get<std::string>("algo") << "\n"
+            << "HENCE WE HAVE THE CASE " << algos.at(parser.get<std::string>("algo")) << std::endl;
+            switch (algos.at(parser.get<std::string>("algo")))
+            {
+            case 0:
+                pBackSub = cv::createBackgroundSubtractorKNN(1000, 200, false);
+                break;
+            case 1:
+                pBackSub = cv::createBackgroundSubtractorMOG2(1000, 200., false);
+                break;
+            // case 2:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorCNT();
+            //     break;
+            // case 3:
+            // when using GMG use pmorphologyEx to denoise(good edges)
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorGMG();
+            //     break;
+            // case 4:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorMGSOC();
+            //     break;
+            // case 5:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorLSBP();
+            //     break;
+            // case 6:
+            //     pBackSub = cv::bgsegm::createBackgroundSubtractorMOG();
+            //     break;
+            // case 7:
+            //     pBackSub = cv::cuda::createBackgroundSubtractorFGD();
+            //     break;
+            // case 8:
+            //     pBackSub = cv::cuda::createBackgroundSubtractorGMG();
+            //     break;
+            // case 9:
+            //     pBackSub = cv::cuda::createBackgroundSubtractorMOG();
+            //     break;
+            default:
+                std::cerr << "INFO : No algo correct algo was given, you can choose among :\n"
+                          << "MOG2, KNN,  / \n"
+                          << "don't work -> CNT,GMG, GSOC, SBP, MOG, cudaFGD, cudaGMG, cudaMOG" << std::endl;
+                return -1;
+            }
+            use_background = false;
         }
-        use_algo = true;
+        else // DEFAULT PATH (recheck)
+        {
+            // medianFrame = computeMedianFrame(cap, frame, false, true, 30);
+            cap.set(cv::CAP_PROP_POS_FRAMES, 180);
+            cap >> medianFrame;
+            // lumenCorrection(medianFrame, medianFrame);
+            cap.set(cv::CAP_PROP_POS_FRAMES, 260);
+            cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
+            use_background = true;
+            if (use_alpha)
+            {
+                std::cout << "size of medianFrame " << medianFrame.size << std::endl;
+                std::cout << "size of alpha " << alpha.size << std::endl;
+                cv::multiply(medianFrame, grayAlpha, medianFrame);
+                std::cout << "MEDIAN MAKETYPE : " << medianFrame.type() << std::endl;
+                cv::resize(medianFrame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+                // cv::imshow("median", rszd_frame);
+            }
+        }
     }
 
 
@@ -897,203 +803,142 @@ int main(int argc, char const *argv[])
         );
 
         if (!writer.isOpened()) 
+        {
             std::cerr << "INFO : Could not open the output video file for write\n";
-        else saving = true;
+            const bool saving = false;
+        }
+        const bool saving = true;
     }
-
+    else
+        const bool saving = false;
     // TODO check how to put maxFrames in the for loop
     // if (saving)
     //     const int maxFrames = videoMaxFrame(writer);
 
-    if (parser.has("hide")) hide=true;
-
     /// ------------------------------------
-
-    // prototype stopping condition
-    // cap.set(cv::CAP_PROP_POS_FRAMES, 1280);
-
 
     cv::Mat lab_frame, defineSegm, tmp_frame;
     // TODO fix use of run time bool => find better way !!
     // loop over all frames
     for (;;)
     {
-        // read frames
+        // read frames 
         cap >> frame;
-
-        // add thresholds and denoising ?
-
-        #ifdef lumen
         lumenCorrection(frame, frame);
-        #endif
-
-        #ifdef predenoising
-        initDenoised(frame, frame, 80, 2, false);
-        #endif
-
+        // cv::resize(lab_frame, lab_frame, cv::Size(640, 480), cv::INTER_LINEAR);
         frame.copyTo(fin_frame);
         // Convert current frame to grayscale
 		cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
+        // initDenoised(frame, frame, 80., 2, false); // can't be used with background due to small moves
+        // cv::threshold(dframe, dframe, 120, max_threshold, cv::THRESH_BINARY);
+        // cv::imshow("preprocessed", dframe);
 
-        // #ifdef showIntermediate
-        // cv::resize(frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-        // cv::imshow("preprocessed image", rszd_frame);
-        // #endif
 
-        if (use_alpha) cv::multiply(frame, grayAlpha, frame);
+        // TODO check this later
+        // // do smthg if needs empty
+        // if (frame.empty())
+        // {
+        //     // do things 
+        //     continue;
+        // }
 
+        // cv::Canny(dframe, dframe, 256, 512,3);
+
+        // std::cout << " Frame infos : " << frame.size << frame.type() << std::endl;
+        if (use_alpha)
+            cv::multiply(frame, grayAlpha, frame);
+		
         if (use_background)
         {
             // Calculate absolute difference of current frame and the median frame
-            absdiff(frame, medianFrame, bckg_frame);
-            // check if increasing the contrast
-            // lumenCorrection(bckg_frame, bckg_frame, false);
-        }
+            absdiff(frame, medianFrame, dframe);
 
-        if (use_algo)
-        {
-            //update the background model wirth substraction
-            pBackSub->apply(frame, algo_frame, 0.1);
-        }
+            // on_trackbar(thr_slider)
 
-        #ifdef showIntermediate
-        cv::resize(bckg_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-        cv::imshow("background image", rszd_frame);
-        cv::resize(algo_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-        cv::imshow("algo frame", rszd_frame);
-        #endif
-
-        #ifdef postdenoising
-
-            // Threshold to binarize (will change the shadow)
-            cv::threshold(bckg_frame, bckg_frame, 100, max_threshold, cv::THRESH_BINARY);      
-            // Change color of the mask (might look at smthg else)
-            cv::cvtColor(bckg_frame, bckg_frame, cv::COLOR_GRAY2BGR);
-
-            // Threshold to binarize (will change the shadow)
-            cv::threshold(algo_frame, algo_frame, 80, max_threshold, cv::THRESH_BINARY);      
-            // Change color of the mask (might look at smthg else)
-            cv::cvtColor(algo_frame, algo_frame, cv::COLOR_GRAY2BGR);
-
-            // #ifdef showIntermediate
-            // cv::resize(bckg_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-            // cv::imshow("background image denoised", rszd_frame);
-            // cv::resize(algo_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-            // cv::imshow("algo frame denoised", rszd_frame);
-            // #endif
-
-        #endif
-
-        cv::addWeighted(bckg_frame, 1., algo_frame, 1., 0., dframe);
-
-        #ifdef showIntermediate
-        // cv::circle(dframe, puncture_check, rad_check, cv::Scalar(0,255,0), 2);
-        cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-        cv::imshow("summed image", rszd_frame);
-        #endif
-
-        #ifdef refining
-        dframe.copyTo(refine_frame);
-        splitTo4(refine_frame, rectangles, dvector);
-        // for(int pos=0; pos<rectangles.size(); pos++)
-        for(int pos=0; pos<roiToProcess; pos++)
-        {
-            refineSegmentation(
-                dvector[pos], 
-                dvector[pos], 
-                last_big, last_vector[pos],
-                refresh,
-                2, percent,
-                cv::Scalar(0,0,255),
-                (pos==0 && (! punctured))
-            );
-            // add variable for the saving condition
-            // save all parts independently
-            // push dvector inside of dframe
-            if (refresh) 
-                dvector[pos].copyTo(last_vector[pos]);
-            last_vector[pos].copyTo(dframe(rois.at(pos)));
-        }
-        #endif
-
-        #ifdef checkingBox
-        // dosn't work (makes the prog lag)
-        // imageBip(dframe, fin_frame, topleftROI, cv::Scalar(0, 255,0));
-
-        punctured = (cap.get(cv::CAP_PROP_POS_FRAMES) > 1170);
-
-        if (! punctured)
-        {
-            // validation bipping green
-            // maskBip(dframe, fin_frame, validation, topleftROI,cv::Scalar(0,255,0) );
-            validationFrame = dframe(validation);
-            for (it = validationFrame.begin<cv::Vec3b>(); it != validationFrame.end<cv::Vec3b>(); ++it)
-            {
-                if (! ((*it)[2]==0))
-                {
-                    cv::rectangle(fin_frame, topleftROI, cv::Scalar(0,255,0), 3);
-                    break;
-                }
-                else cv::rectangle(fin_frame, topleftROI, cv::Scalar(0,0,0), 3);
-            }
+            // cv::imshow("dframe colored", dframe);
         }
         else
         {
-            roiToProcess = 4;
-            cv::rectangle(fin_frame, topleftROI, cv::Scalar(0,255,0), 3);
-            // checking distannce of needle
-            // maskBip(dframe, fin_frame, caution, downrightROI,cv::Scalar(0,125,255) );
-            warningFrame = dframe(caution);
-            for (it = warningFrame.begin<cv::Vec3b>(); it != warningFrame.end<cv::Vec3b>(); ++it)
-            {
-                if (! ((*it)[2]==0))
-                {
-                    cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,160,224), 3);
-                    for (otherIt = forbidenFrame.begin<cv::Vec3b>(); 
-                        otherIt != forbidenFrame.end<cv::Vec3b>(); 
-                        ++otherIt
-                    )
-                    {
-                        if (! ((*otherIt)[2]==0))
-                        {
-                            cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,0,255), 3);
-                            break;
-                        }
-                    }
-                    break;
-                }
-                else cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,0,0), 3);
-            }
+            // std::cout << "APLYING THE SUBTRACTION " << std::endl;
+            //update the background model wirth substraction
+            pBackSub->apply(frame, dframe, 0.8);
+            cv::threshold(dframe, dframe, 80, max_threshold, cv::THRESH_BINARY);
 
-            // maskBip(dframe, fin_frame, forbiden, downrightROI,cv::Scalar(0,0,255) );
-            // forbidenFrame = dframe(forbiden);
-            // for (it = forbidenFrame.begin<cv::Vec3b>(); it != forbidenFrame.end<cv::Vec3b>(); ++it)
-            // {
-            //     if (! ((*it)[2]==0))
-            //     {
-            //         cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,0,255), 3);
-            //         break;
-            //     }
-            //     else cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,0,0), 3);
-            // }
+
+            // some other algos
+            // cv::grabCut()        
         }
-        #endif
+
+        // cv::Canny(dframe, dframe, 256, 512,3);
+        // Standard Hough Line Transform
+        // drawHoughLines(dframe, dframe);
+        // cv::imshow("canny", dframe);
+        // contouring(dframe, dframe);
+
+        // Threshold to binarize (will change the shadow)
+        cv::threshold(dframe, dframe, thr_slider, max_threshold, cv::THRESH_BINARY);
+            
+        // Change color of the mask (might look at smthg else)
+        cv::cvtColor(dframe, dframe, cv::COLOR_GRAY2BGR);
 
 
-        #ifdef showIntermediate
+        // this part groups the biggest point cloud into one clean object
+        // pb not always the tip
+        // should take the 2-3 biggest and group to have the whole
+        // for (int i=0; i<2; i++)
+        // {
+
+
+        // }
         cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-        cv::imshow("refined image", rszd_frame);
-        #endif
+        cv::imshow("dframe", rszd_frame); 
 
-        // overlay the result on the source video
+        splitTo4(dframe, rectangles, dvector);
+        for(int pos=0; pos<rectangles.size(); pos++)
+        {
+            refineSegmentation(dvector[pos], dvector[pos], 2, cv::Scalar(0,0,255));
+            // cv::cvtColor(dvector[pos], dvector[pos], cv::COLOR_BGR2GRAY);
+            // drawHoughLines(dvector[pos], dvector[pos]);
+            // cv::LUT(dframe(rois.at(pos)), last_vector[pos], dframe(rois.at(pos)));
+            // dframe(rois.at(pos)) = last_vector[pos];
+            // (*(dframe(rois.at(pos))).data) = *last_vector[pos].data;
+        }
+
+        // drawHoughLines(dframe, dframe);
+        // refineSegmentation(dframe, defineSegm, 2, cv::Scalar(255,0,0));
+        // cv::addWeighted(fin_frame, 1, defineSegm, rem_slider, 0.0, tmp_frame);
+        // cv::addWeighted(fin_frame, 0.3, defineSegm, overlay_slider, 0.0, defineSegm);
+        // cv::resize(defineSegm, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+
+
+        validationFrame = dvector[0](validation);
+        cv::MatIterator_<cv::Vec3b> it; // = src_it.begin<cv::Vec3b>();
+        for (it = validationFrame.begin<cv::Vec3b>(); it != validationFrame.end<cv::Vec3b>(); ++it)
+        {
+            if (! ((*it)[2]==0))
+            {
+                cv::rectangle(fin_frame, topleftROI, cv::Scalar(0,255,0), 3);
+                break;
+            }
+            // else cv::subtract(fin_frame, topleftFr, fin_frame);
+            else cv::rectangle(fin_frame, topleftROI, cv::Scalar(0,0,0), 3);
+
+        }
+        cv::imshow("refined", dvector[0]); 
+
+        // overlay the result over the source video
+        // cv::cvtColor(frame, frame, cv::COLOR_GRAY2BGR); // just copy before ? !!!
+        /// TROP LENTS !!!!!!
         cv::subtract(fin_frame, dframe, fin_frame);
+        // cv::addWeighted(fin_frame, 1, dframe, rem_slider, 0.0, fin_frame);
         cv::multiply(dframe, color_overlay, dframe);
         cv::circle(fin_frame, puncture_zone, rad_puncture, cv::Scalar(0,255,0), 2);
+        // cv::circle(fin_frame, puncture_check, rad_check, cv::Scalar(0,255,0), 2);
         cv::addWeighted(fin_frame, bkcgnd_slider, dframe, overlay_slider, 0.0, fin_frame);
 
-        // cv::rectangle(fin_frame, caution, cv::Scalar(0,128,255), 2);
-        // cv::rectangle(fin_frame, forbiden, cv::Scalar(0,0,255), 2);
-		// Display Image
+		// // Display Image
+        // cv::resize(frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+        // cv::imshow("Test", rszd_frame);
         cv::resize(fin_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
 		if (! parser.has("hide"))
         {
@@ -1102,8 +947,7 @@ int main(int argc, char const *argv[])
         }
         if(saving)
             writer.write(fin_frame);
-        // std::cout << cap.get(cv::CAP_PROP_POS_FRAMES) << std::endl;
-        
+
         // TODO add the handle function later
         // Exit if ESC pressed
         int key_event = cv::waitKey(1);
@@ -1112,5 +956,6 @@ int main(int argc, char const *argv[])
             break;
         }
     }
+    
     return 0;
 }
