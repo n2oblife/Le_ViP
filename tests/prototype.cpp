@@ -101,7 +101,7 @@ void refineSegmentation(
     const int& niters = 3,
     const double& percent = 0.6,
     const cv::Scalar& color = cv::Scalar(255,255,255),
-    const bool& enface=false
+    const int& pos = 0
 )
 {
     // Temporary Mat for intermediate processing
@@ -114,21 +114,16 @@ void refineSegmentation(
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
 
-
     // Apply morphological dilation to the input mask
     cv::dilate(temp, temp, cv::Mat(), cv::Point(-1, -1), niters*2);
-
     // Apply morphological erosion to the dilated mask
-    cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), niters*2);
-
+    cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), niters);
     // Apply morphological dilation to the eroded mask
     cv::dilate(temp, temp, cv::Mat(), cv::Point(-1, -1), niters);
-
-    // cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), niters * 2);
+    cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), 1);
 
     // Find contours in the processed mask
     cv::findContours(temp, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
-
     // Create an output Mat initialized with zeros
     dst = cv::Mat::zeros(segMask.size(), CV_8UC3);
 
@@ -160,9 +155,10 @@ void refineSegmentation(
     //     std::cout << "LAST BIG AREA : " << last_big << std::endl;
 
     // }
-    if (enface)
+    if (pos == 0 || pos == 2 || pos == 3)
     {
         // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+        // use a vector for last_big
         if (maxArea > (percent * last_big) )
         {
             // Draw the largest contour on the output Mat
@@ -176,6 +172,38 @@ void refineSegmentation(
             last_mat.copyTo(dst);
             refresh = false;
         }
+    }
+    else if (pos == 4)
+    {
+        // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+        // use a vector for last_big
+        if (maxArea > ((percent-0.12) * last_big) )
+        {
+            // Draw the largest contour on the output Mat
+            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+            // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
+            if (24000. > maxArea) last_big = maxArea;
+            refresh = true;
+        }    
+        else 
+        {
+            last_mat.copyTo(dst);
+            refresh = false;
+        }
+    }
+    else if (pos == 1)
+    {
+        if (maxArea < ((0.6+percent) * last_big))
+        {
+            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+            if (20000 > maxArea) last_big = maxArea;
+            refresh = true;
+        }
+        else 
+        {
+            last_mat.copyTo(dst);
+            refresh = false;
+        }    
     }
     else 
     {
@@ -300,7 +328,8 @@ void splitTo4(
 {
     assert(rectangles.size() == splitted_frames.size());
     for (int pos=0; pos<rectangles.size(); pos++) 
-        splitted_frames[pos] = cv::Mat(src_frame, rectangles[pos]);
+        splitted_frames[pos] = src_frame(rectangles[pos]);
+        // cv::Mat(src_frame, rectangles[pos]);
 }
 
 // TODO check the function, needs debug
@@ -624,7 +653,7 @@ cv::Mat initAlphaFrame(
 // #define predenoising
 #define postdenoising
 #define refining
-// #define showIntermediate
+#define showIntermediate
 #define checkingBox
 
 /// ================================================
@@ -661,11 +690,11 @@ int main(int argc, char const *argv[])
 
     // set the parameters to use (check to init correctly)
     bool use_alpha=false, saving=false, use_background=false, use_algo=false, 
-    hide=false, punctured=false, refresh=true, scnd_step=false;
+    hide=false, punctured=false, refresh=true, scnd_step=false, post_puncture_stop = false;
     cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, 
     grayAlpha, bckg_frame, algo_frame, refine_frame, stopping_frame;
     const std::string window_name = "frame";
-    double last_big=0., percent = 0.8 ;
+    double percent = 0.85 ;
     cv::VideoWriter writer;
     cv::namedWindow(window_name); // create window
     
@@ -742,7 +771,7 @@ int main(int argc, char const *argv[])
     // set colored overlay
     const cv::Mat color_overlay(cap_size, cap_maketype , cv::Scalar(0,0,255));
 
-    // Define ROIs to split video in 4
+    // Define ROIs to split video in 4 (5 actually)
     const cv::Size subFrSze = {cap_size.width/2, cap_size.height/2};
     const cv::Rect topleftROI = cv::Rect(0, 0, subFrSze.width, subFrSze.height), 
         toprightupROI = cv::Rect(subFrSze.width, 0, subFrSze.width, 0.5*subFrSze.height), 
@@ -753,11 +782,14 @@ int main(int argc, char const *argv[])
     const std::map<int, cv::Rect> rois = 
     {
         {0, topleftROI},
-        {1, toprightdownROI},
-        {2, toprightupROI},
-        // {3, downleftROI},
-        {3, downrightROI},
+        {1, downleftROI},
+        {2, toprightdownROI},
+        {3, toprightupROI},
+        {4, downrightROI},
     };
+
+    // init value to prevent clipping
+    std::vector<double> last_big = {0.,1000000.,0.,0.,0.};
 
     cv::Mat topleftFr = cv::Mat(frame, topleftROI), 
         toprightupFr = cv::Mat(frame, toprightupROI),
@@ -765,10 +797,9 @@ int main(int argc, char const *argv[])
         downleftFr = cv::Mat(frame, downleftROI), 
         downrightFr = cv::Mat(frame, downrightROI);
 
-    // const std::vector<cv::Rect> rectangles ({topleftROI, toprightdownROI, toprightupROI, downleftROI, downrightROI});
-    const std::vector<cv::Rect> rectangles ({topleftROI, toprightdownROI, toprightupROI, downrightROI});
-    std::vector<cv::Mat> splitted(rois.size()), dvector(rois.size()), last_vector(rois.size()); // init splitted vector and transformed vector
-    int roiToProcess = 2;
+    const std::vector<cv::Rect> rectangles ({topleftROI, downleftROI, toprightdownROI, toprightupROI, downrightROI});
+    std::vector<cv::Mat> splitted(rois.size()), dvector(rois.size()), last_vector(rois.size()), fin_vector(rois.size()); // init splitted vector and transformed vector
+    int minRoiToProcess=0, roiToProcess=rois.size() ;
     splitTo4(frame, rectangles, splitted);
 
     const cv::Rect validation = cv::Rect(
@@ -840,7 +871,7 @@ int main(int argc, char const *argv[])
         switch (algos.at(parser.get<std::string>("algo")))
         {
         case 0:
-            pBackSub = cv::createBackgroundSubtractorKNN(700, 400, false);
+            pBackSub = cv::createBackgroundSubtractorKNN(700, 375, false);
             break;
         case 1:
             pBackSub = cv::createBackgroundSubtractorMOG2(1000, 200., false);
@@ -892,7 +923,7 @@ int main(int argc, char const *argv[])
             parser.get<std::string>("output"),
             cv::VideoWriter::fourcc('M','J','P','G'),
             30.,
-            cap_size,
+            splitted[0].size(),
             true // isColor
         );
 
@@ -909,8 +940,9 @@ int main(int argc, char const *argv[])
 
     /// ------------------------------------
 
-    // prototype stopping condition
-    // cap.set(cv::CAP_PROP_POS_FRAMES, 1280);
+    // prototype beggining
+    cap.set(cv::CAP_PROP_POS_FRAMES, 1100);
+    cap >> frame;
 
 
     cv::Mat lab_frame, defineSegm, tmp_frame;
@@ -953,7 +985,7 @@ int main(int argc, char const *argv[])
         if (use_algo)
         {
             //update the background model wirth substraction
-            pBackSub->apply(frame, algo_frame, 0.1);
+            pBackSub->apply(frame, algo_frame, 0.12);
         }
 
         #ifdef showIntermediate
@@ -966,7 +998,7 @@ int main(int argc, char const *argv[])
         #ifdef postdenoising
 
             // Threshold to binarize (will change the shadow)
-            cv::threshold(bckg_frame, bckg_frame, 100, max_threshold, cv::THRESH_BINARY);      
+            cv::threshold(bckg_frame, bckg_frame, 120, max_threshold, cv::THRESH_BINARY);      
             // Change color of the mask (might look at smthg else)
             cv::cvtColor(bckg_frame, bckg_frame, cv::COLOR_GRAY2BGR);
 
@@ -993,24 +1025,30 @@ int main(int argc, char const *argv[])
         #endif
 
         #ifdef refining
+        punctured = (cap.get(cv::CAP_PROP_POS_FRAMES) > 930) && (cap.get(cv::CAP_PROP_POS_FRAMES) < 1190);
         dframe.copyTo(refine_frame);
         splitTo4(refine_frame, rectangles, dvector);
         // for(int pos=0; pos<rectangles.size(); pos++)
-        for(int pos=0; pos<roiToProcess; pos++)
+        for(int pos=minRoiToProcess; pos<roiToProcess; pos++)
         {
             refineSegmentation(
                 dvector[pos], 
                 dvector[pos], 
-                last_big, last_vector[pos],
+                last_big[pos], 
+                last_vector[pos],
                 refresh,
                 2, percent,
                 cv::Scalar(0,0,255),
-                (pos==0 && (! punctured))
+                pos
             );
             // add variable for the saving condition
             // save all parts independently
             // push dvector inside of dframe
-            if (refresh) 
+            // refreshing_state_bef_puncture = ((pos < 3) ^ (punctured));
+            // if (refresh && refreshing_state_bef_puncture) 
+
+            post_puncture_stop = !(punctured && (pos < 3));
+            if (refresh && post_puncture_stop)
                 dvector[pos].copyTo(last_vector[pos]);
             last_vector[pos].copyTo(dframe(rois.at(pos)));
         }
@@ -1019,10 +1057,9 @@ int main(int argc, char const *argv[])
         #ifdef checkingBox
         // dosn't work (makes the prog lag)
         // imageBip(dframe, fin_frame, topleftROI, cv::Scalar(0, 255,0));
+        // std::cout << cap.get(cv::CAP_PROP_POS_FRAMES) << std::endl;
 
-        punctured = (cap.get(cv::CAP_PROP_POS_FRAMES) > 1170);
-
-        if (! punctured)
+        if (cap.get(cv::CAP_PROP_POS_FRAMES) < 1190)
         {
             // validation bipping green
             // maskBip(dframe, fin_frame, validation, topleftROI,cv::Scalar(0,255,0) );
@@ -1039,7 +1076,6 @@ int main(int argc, char const *argv[])
         }
         else
         {
-            roiToProcess = 4;
             cv::rectangle(fin_frame, topleftROI, cv::Scalar(0,255,0), 3);
             // checking distannce of needle
             // maskBip(dframe, fin_frame, caution, downrightROI,cv::Scalar(0,125,255) );
@@ -1048,7 +1084,7 @@ int main(int argc, char const *argv[])
             {
                 if (! ((*it)[2]==0))
                 {
-                    cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,160,224), 3);
+                    cv::rectangle(fin_frame, downrightROI, cv::Scalar(0,112,112), 3);
                     for (otherIt = forbidenFrame.begin<cv::Vec3b>(); 
                         otherIt != forbidenFrame.end<cv::Vec3b>(); 
                         ++otherIt
@@ -1095,13 +1131,16 @@ int main(int argc, char const *argv[])
         // cv::rectangle(fin_frame, forbiden, cv::Scalar(0,0,255), 2);
 		// Display Image
         cv::resize(fin_frame, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+
+        splitTo4(fin_frame, rectangles, fin_vector);
 		if (! parser.has("hide"))
         {
             // cv::imshow("lab", lab_frame);
             cv::imshow(window_name, rszd_frame);
         }
         if(saving)
-            writer.write(fin_frame);
+            // writer.write(fin_vector[0]);
+            writer.write(fin_frame(downrightROI));
         // std::cout << cap.get(cv::CAP_PROP_POS_FRAMES) << std::endl;
         
         // TODO add the handle function later

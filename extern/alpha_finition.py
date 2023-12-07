@@ -70,7 +70,8 @@ if __name__ == '__main__':
     input = vars['input']
     output = vars['output']
     image = Image.open(input)
+    data_reparition(np.asarray(image))
     finalize_mask(image, 240)
-    image.save('output.png')
+    image.save(output)
     data_reparition(np.asarray(image))
 
