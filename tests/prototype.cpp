@@ -86,10 +86,61 @@ void initDenoised(
 {
     cv::Mat tmp(src_frame);
     if (turnGray) cv::cvtColor(tmp, tmp, cv::COLOR_BGR2GRAY);
-    cv::GaussianBlur(tmp, tmp, cv::Size(5,5),0 );
+    cv::GaussianBlur(tmp, tmp, cv::Size(5,5),0 , 2);
     cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
     cv::erode(tmp,tmp, cv::Mat(), cv::Point(-1,-1), niters);
     cv::dilate(tmp, out_frame, cv::Mat(), cv::Point(-1, -1), niters);
+}
+
+void drawAxis(cv::Mat& img, cv::Point p, cv::Point q, cv::Scalar colour, const float scale = 0.2)
+{
+    double angle = atan2( (double) p.y - q.y, (double) p.x - q.x ); // angle in radians
+    double hypotenuse = sqrt( (double) (p.y - q.y) * (p.y - q.y) + (p.x - q.x) * (p.x - q.x));
+    // Here we lengthen the arrow by a factor of scale
+    q.x = (int) (p.x - scale * hypotenuse * cos(angle));
+    q.y = (int) (p.y - scale * hypotenuse * sin(angle));
+    line(img, p, q, colour, 1, cv::LINE_AA);
+    // create the arrow hooks
+    p.x = (int) (q.x + 9 * cos(angle + CV_PI / 4));
+    p.y = (int) (q.y + 9 * sin(angle + CV_PI / 4));
+    line(img, p, q, colour, 1, cv::LINE_AA);
+    p.x = (int) (q.x + 9 * cos(angle - CV_PI / 4));
+    p.y = (int) (q.y + 9 * sin(angle - CV_PI / 4));
+    line(img, p, q, colour, 1, cv::LINE_AA);
+}
+
+double getOrientation(const std::vector<cv::Point> &pts, cv::Mat &img)
+{
+    //Construct a buffer used by the pca analysis
+    int sz = static_cast<int>(pts.size());
+    cv::Mat data_pts = cv::Mat(sz, 2, CV_64F);
+    for (int i = 0; i < data_pts.rows; i++)
+    {
+        data_pts.at<double>(i, 0) = pts[i].x;
+        data_pts.at<double>(i, 1) = pts[i].y;
+    }
+    //Perform PCA analysis
+    cv::PCA pca_analysis(data_pts, cv::Mat(), cv::PCA::DATA_AS_ROW);
+    //Store the center of the object
+    cv::Point cntr = cv::Point(static_cast<int>(pca_analysis.mean.at<double>(0, 0)),
+                      static_cast<int>(pca_analysis.mean.at<double>(0, 1)));
+    //Store the eigenvalues and eigenvectors
+    std::vector<cv::Point2d> eigen_vecs(2);
+    std::vector<double> eigen_val(2);
+    for (int i = 0; i < 2; i++)
+    {
+        eigen_vecs[i] = cv::Point2d(pca_analysis.eigenvectors.at<double>(i, 0),
+                                pca_analysis.eigenvectors.at<double>(i, 1));
+        eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+    }
+    // Draw the principal components
+    cv::circle(img, cntr, 3, cv::Scalar(255, 0, 255), 2);
+    cv::Point p1 = cntr + 0.02 * cv::Point(static_cast<int>(eigen_vecs[0].x * eigen_val[0]), static_cast<int>(eigen_vecs[0].y * eigen_val[0]));
+    cv::Point p2 = cntr - 0.02 * cv::Point(static_cast<int>(eigen_vecs[1].x * eigen_val[1]), static_cast<int>(eigen_vecs[1].y * eigen_val[1]));
+    drawAxis(img, cntr, p1, cv::Scalar(0, 255, 0), 1);
+    drawAxis(img, cntr, p2, cv::Scalar(255, 255, 0), 5);
+    double angle = atan2(eigen_vecs[0].y, eigen_vecs[0].x); // orientation in radians
+    return angle;
 }
 
 void refineSegmentation(
@@ -149,67 +200,71 @@ void refineSegmentation(
             largestComp = idx;
         }
     }
-    // if (show) 
-    // {
-    //     std::cout << "MAX AREA : " << maxArea << std::endl;
-    //     std::cout << "LAST BIG AREA : " << last_big << std::endl;
+    // CHEAT !! comment this for stability
+    cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    getOrientation(contours[largestComp], dst);
+    refresh = true;
 
+    // CHEAT !! uncomment for stability
+    // if (pos == 0 || pos == 2 || pos == 3)
+    // {
+    //     // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //     // use a vector for last_big
+    //     if (maxArea > (percent * last_big) )
+    //     {
+    //         // Draw the largest contour on the output Mat
+    //         cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //         getOrientation(contours[largestComp], dst);
+    //         // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //         if (24000. > maxArea) last_big = maxArea;
+    //         refresh = true;
+    //     }    
+    //     else 
+    //     {
+    //         last_mat.copyTo(dst);
+    //         refresh = false;
+    //     }
     // }
-    if (pos == 0 || pos == 2 || pos == 3)
-    {
-        // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-        // use a vector for last_big
-        if (maxArea > (percent * last_big) )
-        {
-            // Draw the largest contour on the output Mat
-            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-            // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
-            if (24000. > maxArea) last_big = maxArea;
-            refresh = true;
-        }    
-        else 
-        {
-            last_mat.copyTo(dst);
-            refresh = false;
-        }
-    }
-    else if (pos == 4)
-    {
-        // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-        // use a vector for last_big
-        if (maxArea > ((percent-0.12) * last_big) )
-        {
-            // Draw the largest contour on the output Mat
-            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-            // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
-            if (24000. > maxArea) last_big = maxArea;
-            refresh = true;
-        }    
-        else 
-        {
-            last_mat.copyTo(dst);
-            refresh = false;
-        }
-    }
-    else if (pos == 1)
-    {
-        if (maxArea < ((0.6+percent) * last_big))
-        {
-            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-            if (20000 > maxArea) last_big = maxArea;
-            refresh = true;
-        }
-        else 
-        {
-            last_mat.copyTo(dst);
-            refresh = false;
-        }    
-    }
-    else 
-    {
-        cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-        refresh = true;
-    }
+    // else if (pos == 4)
+    // {
+    //     // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //     // use a vector for last_big
+    //     if (maxArea > ((percent-0.12) * last_big) )
+    //     {
+    //         // Draw the largest contour on the output Mat
+    //         cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //         getOrientation(contours[largestComp], dst);
+    //         // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //         if (24000. > maxArea) last_big = maxArea;
+    //         refresh = true;
+    //     }    
+    //     else 
+    //     {
+    //         last_mat.copyTo(dst);
+    //         refresh = false;
+    //     }
+    // }
+    // else if (pos == 1)
+    // {
+    //     if (maxArea < ((0.6+percent) * last_big))
+    //     {
+    //         cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //         getOrientation(contours[largestComp], dst);
+    //         if (20000 > maxArea) last_big = maxArea;
+    //         refresh = true;
+    //     }
+    //     else 
+    //     {
+    //         last_mat.copyTo(dst);
+    //         refresh = false;
+    //     }    
+    // }
+    // else 
+    // {
+    //     cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    //     getOrientation(contours[largestComp], dst);
+    //     refresh = true;
+    // }
 }
 
 // need to be gray
@@ -392,6 +447,45 @@ void maskBip(
         }
         else cv::rectangle(plot_frame, bippinBox, cv::Scalar(0,0,0), 3);
     }
+}
+
+void opticalFlow(
+    cv::Mat& previous_frame,
+    cv::Mat& next_frame,
+    cv::Mat& out_frame,
+    const bool& isColor=false
+)
+{
+    cv::Mat previous, next;
+    if (isColor) 
+    {
+        cv::cvtColor(previous_frame, previous, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(next_frame, next, cv::COLOR_BGR2GRAY);
+    }
+    else  
+    {
+        previous_frame.copyTo(previous);
+        next_frame.copyTo(next);
+    }
+
+    cv::Mat flow(previous.size(), CV_32FC2);
+    cv::calcOpticalFlowFarneback(previous, next, flow, 0.5, 3, 15, 3, 5, 1.2, 0);
+    // visualization
+    cv::Mat flow_parts[2];
+    cv::split(flow, flow_parts);
+    cv::Mat magnitude, angle, magn_norm;
+    cv::cartToPolar(flow_parts[0], flow_parts[1], magnitude, angle, true);
+    cv::normalize(magnitude, magn_norm, 0.0f, 1.0f, cv::NORM_MINMAX);
+    angle *= ((1.f / 360.f) * (180.f / 255.f));
+    //build hsv image
+    cv::Mat _hsv[3], hsv, hsv8, bgr;
+    _hsv[0] = angle;
+    _hsv[1] = cv::Mat::ones(angle.size(), CV_32F);
+    _hsv[2] = magn_norm;
+    cv::merge(_hsv, 3, hsv);
+    hsv.convertTo(hsv8, CV_8U, 255.0);
+    cv::cvtColor(hsv8, bgr, cv::COLOR_HSV2BGR);
+    bgr.copyTo(out_frame);
 }
 
 /// -------------------------
@@ -650,11 +744,12 @@ cv::Mat initAlphaFrame(
 /// =============================================================
 
 // #define lumen
-// #define predenoising
+#define predenoising
 #define postdenoising
 #define refining
 #define showIntermediate
-#define checkingBox
+// #define checkingBox
+// #define opticaling
 
 /// ================================================
 /// --------------------- Main ---------------------
@@ -694,7 +789,7 @@ int main(int argc, char const *argv[])
     cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, 
     grayAlpha, bckg_frame, algo_frame, refine_frame, stopping_frame;
     const std::string window_name = "frame";
-    double percent = 0.85 ;
+    double percent = 0.825 ;
     cv::VideoWriter writer;
     cv::namedWindow(window_name); // create window
     
@@ -848,6 +943,9 @@ int main(int argc, char const *argv[])
         #ifdef lumen
         lumenCorrection(medianFrame, medianFrame);
         #endif
+        #ifdef predenoising
+        cv::GaussianBlur(medianFrame, medianFrame, cv::Size(5,5),0 , 2);
+        #endif
        
         cv::resize(medianFrame, medianFrame, cap_size,  cv::INTER_LINEAR);
 		cv::cvtColor(medianFrame, medianFrame, cv::COLOR_BGR2GRAY);
@@ -871,7 +969,7 @@ int main(int argc, char const *argv[])
         switch (algos.at(parser.get<std::string>("algo")))
         {
         case 0:
-            pBackSub = cv::createBackgroundSubtractorKNN(700, 375, false);
+            pBackSub = cv::createBackgroundSubtractorKNN(700, 350, false);
             break;
         case 1:
             pBackSub = cv::createBackgroundSubtractorMOG2(1000, 200., false);
@@ -923,7 +1021,8 @@ int main(int argc, char const *argv[])
             parser.get<std::string>("output"),
             cv::VideoWriter::fourcc('M','J','P','G'),
             30.,
-            splitted[0].size(),
+            cap_size,
+            // splitted[0].size(),
             true // isColor
         );
 
@@ -940,12 +1039,13 @@ int main(int argc, char const *argv[])
 
     /// ------------------------------------
 
-    // prototype beggining
-    cap.set(cv::CAP_PROP_POS_FRAMES, 1100);
-    cap >> frame;
+    // prototype beggining (not working)
+    // cap.set(cv::CAP_PROP_POS_FRAMES, 1100);
+    cv::namedWindow("pre refined");
 
-
-    cv::Mat lab_frame, defineSegm, tmp_frame;
+    cv::Mat tmp, optFlow_prev, optFlow_next, opticaled; //TODO need to init properly
+    std::vector<cv::Point> ;
+    cv::cvtColor(frame, optFlow_prev, cv::COLOR_BGR2GRAY);
     // TODO fix use of run time bool => find better way !!
     // loop over all frames
     for (;;)
@@ -960,8 +1060,29 @@ int main(int argc, char const *argv[])
         #endif
 
         #ifdef predenoising
-        initDenoised(frame, frame, 80, 2, false);
+        cv::GaussianBlur(frame, frame, cv::Size(5,5),0 , 2);
+        // initDenoised(frame, frame, 80, 2, false);
         #endif
+
+        // #ifdef opticaling
+        // const int niters = 2;
+        // cv::cvtColor(frame, tmp, cv::COLOR_BGR2GRAY);
+        // // Apply morphological dilation to the input mask
+        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters*2);
+        // // Apply morphological erosion to the dilated mask
+        // cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
+        // // Apply morphological dilation to the eroded mask
+        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
+        // // cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), 1);
+        // cv::cvtColor(tmp, optFlow_next, cv::COLOR_BGR2GRAY);
+        // opticalFlow(optFlow_prev, optFlow_next, opticaled);
+        // cv::resize(opticaled, opticaled, cv::Size(640, 480), cv::INTER_LINEAR);
+        // // cv::imshow("frame origin", frame);
+        // // cv::imshow("previous", optFlow_prev);
+        // // cv::imshow("next", optFlow_next);
+        // cv::imshow("opticaled", opticaled);
+        // optFlow_prev = optFlow_next; 
+        // #endif
 
         frame.copyTo(fin_frame);
         // Convert current frame to grayscale
@@ -985,7 +1106,8 @@ int main(int argc, char const *argv[])
         if (use_algo)
         {
             //update the background model wirth substraction
-            pBackSub->apply(frame, algo_frame, 0.12);
+            pBackSub->apply(frame, algo_frame, 0.9);
+            // pBackSub->apply(frame, algo_frame, 0.12);
         }
 
         #ifdef showIntermediate
@@ -995,6 +1117,7 @@ int main(int argc, char const *argv[])
         cv::imshow("algo frame", rszd_frame);
         #endif
 
+
         #ifdef postdenoising
 
             // Threshold to binarize (will change the shadow)
@@ -1003,7 +1126,7 @@ int main(int argc, char const *argv[])
             cv::cvtColor(bckg_frame, bckg_frame, cv::COLOR_GRAY2BGR);
 
             // Threshold to binarize (will change the shadow)
-            cv::threshold(algo_frame, algo_frame, 80, max_threshold, cv::THRESH_BINARY);      
+            cv::threshold(algo_frame, algo_frame, 70, max_threshold, cv::THRESH_BINARY);      
             // Change color of the mask (might look at smthg else)
             cv::cvtColor(algo_frame, algo_frame, cv::COLOR_GRAY2BGR);
 
@@ -1018,6 +1141,27 @@ int main(int argc, char const *argv[])
 
         cv::addWeighted(bckg_frame, 1., algo_frame, 1., 0., dframe);
 
+        // #ifdef opticaling
+        // const int niters = 2;
+        // cv::Mat tmp(dframe);
+        // // cv::cvtColor(frame, tmp, cv::COLOR_BGR2GRAY);
+        // // Apply morphological dilation to the input mask
+        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters*2);
+        // // Apply morphological erosion to the dilated mask
+        // cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
+        // // Apply morphological dilation to the eroded mask
+        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
+        // cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), 1);
+        // cv::cvtColor(tmp, optFlow_next, cv::COLOR_BGR2GRAY);
+        // opticalFlow(optFlow_prev, optFlow_next, opticaled);
+        // cv::resize(opticaled, opticaled, cv::Size(640, 480), cv::INTER_LINEAR);
+        // // cv::imshow("frame origin", frame);
+        // // cv::imshow("previous", optFlow_prev);
+        // // cv::imshow("next", optFlow_next);
+        // cv::imshow("opticaled", opticaled);
+        // optFlow_prev = optFlow_next; 
+        // #endif
+
         #ifdef showIntermediate
         // cv::circle(dframe, puncture_check, rad_check, cv::Scalar(0,255,0), 2);
         cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
@@ -1025,7 +1169,7 @@ int main(int argc, char const *argv[])
         #endif
 
         #ifdef refining
-        punctured = (cap.get(cv::CAP_PROP_POS_FRAMES) > 930) && (cap.get(cv::CAP_PROP_POS_FRAMES) < 1190);
+        // punctured = (cap.get(cv::CAP_PROP_POS_FRAMES) > 930) && (cap.get(cv::CAP_PROP_POS_FRAMES) < 1190);
         dframe.copyTo(refine_frame);
         splitTo4(refine_frame, rectangles, dvector);
         // for(int pos=0; pos<rectangles.size(); pos++)
@@ -1041,17 +1185,25 @@ int main(int argc, char const *argv[])
                 cv::Scalar(0,0,255),
                 pos
             );
+            // CHEAT !! uncomment for stability
             // add variable for the saving condition
             // save all parts independently
             // push dvector inside of dframe
-            // refreshing_state_bef_puncture = ((pos < 3) ^ (punctured));
-            // if (refresh && refreshing_state_bef_puncture) 
+            // ->
+            // post_puncture_stop = !(punctured && (pos < 3));
+            // if (refresh && post_puncture_stop)
+            //     dvector[pos].copyTo(last_vector[pos]);
+            // last_vector[pos].copyTo(dframe(rois.at(pos)));
 
-            post_puncture_stop = !(punctured && (pos < 3));
-            if (refresh && post_puncture_stop)
-                dvector[pos].copyTo(last_vector[pos]);
-            last_vector[pos].copyTo(dframe(rois.at(pos)));
+            // CHEAT !! comment for stability
+            dvector[pos].copyTo(dframe(rois.at(pos)));
         }
+
+            #ifdef showIntermediate
+            cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
+            cv::imshow("refined image", rszd_frame);
+            #endif
+        
         #endif
 
         #ifdef checkingBox
@@ -1116,11 +1268,6 @@ int main(int argc, char const *argv[])
         #endif
 
 
-        #ifdef showIntermediate
-        cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
-        cv::imshow("refined image", rszd_frame);
-        #endif
-
         // overlay the result on the source video
         cv::subtract(fin_frame, dframe, fin_frame);
         cv::multiply(dframe, color_overlay, dframe);
@@ -1139,8 +1286,9 @@ int main(int argc, char const *argv[])
             cv::imshow(window_name, rszd_frame);
         }
         if(saving)
-            // writer.write(fin_vector[0]);
-            writer.write(fin_frame(downrightROI));
+            // CHANGE THE CAP SIZE !!!
+            // writer.write(fin_frame(topleftROI));
+            writer.write(opticaled);
         // std::cout << cap.get(cv::CAP_PROP_POS_FRAMES) << std::endl;
         
         // TODO add the handle function later

@@ -55,3 +55,6 @@ target_link_libraries(Lumen PRIVATE ${OpenCV_LIBS})
 
 add_executable(Hough houg_lines.cpp)
 target_link_libraries(Hough PRIVATE ${OpenCV_LIBS})
+
+add_executable(OptFlo optical_flow.cpp)
+target_link_libraries(OptFlo PRIVATE ${OpenCV_LIBS})
