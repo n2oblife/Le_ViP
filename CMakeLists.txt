@@ -50,7 +50,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Arguments for using OpenCV
   if (WIN32)
-    set(OPENCV_DIR "C:/lib/opencv/build")
+    set(OPENCV_DIR "C:/lib/opencv/build/")
   endif(WIN32)
   if (UNIX)
     set(OPENCV_DIR "~/lib/opencv")

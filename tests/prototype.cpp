@@ -1,3 +1,21 @@
+///// TODO !!
+
+// simple improvement : think about unsigned int, change to char
+
+// Good pratices for after : overload, many different functions, less default variables as possible
+// less branches with booleans, create real classes for the elements, more smart/shared pointers
+
+// look at event handling
+// write default values in hpp (if there are)
+
+// use inline function for small functions (functions are substitued not called) ! especially to overload and do default values like :
+// // square.h
+// void print_square(int n, char fill); // only function to write fully in the .cpp
+// inline void print_square_with_side(int n) { print_square(n, '+'); }
+// inline void print_square_with_fill(char fill) { print_square(10, fill); }
+// inline void print_default_square() { print_square(10, '+'); }
+
+
 #include <string>
 #include <iostream>
 #include <random>
@@ -109,7 +127,79 @@ void drawAxis(cv::Mat& img, cv::Point p, cv::Point q, cv::Scalar colour, const f
     line(img, p, q, colour, 1, cv::LINE_AA);
 }
 
-double getOrientation(const std::vector<cv::Point> &pts, cv::Mat &img)
+// additional functions on cv::PCA not to forget
+cv::Point getCenter(const cv::PCA& analysis)
+{
+    return cv::Point(
+        static_cast<int>(analysis.mean.at<double>(0, 0)),
+        static_cast<int>(analysis.mean.at<double>(0, 1))
+    );
+}
+
+std::tuple<std::vector<cv::Point2d>, std::vector<double>> getEigens(
+    const cv::PCA& analysis
+)
+{
+    std::vector<cv::Point2d> eigen_vecs(2);
+    std::vector<double> eigen_val(2);
+    for (int i = 0; i < 2; i++)
+    {
+        eigen_vecs[i] = cv::Point2d(analysis.eigenvectors.at<double>(i, 0),
+                                analysis.eigenvectors.at<double>(i, 1));
+        eigen_val[i] = analysis.eigenvalues.at<double>(i);
+    }
+    return std::tuple(eigen_vecs, eigen_val);
+}
+
+// std::vector<cv::Point> getPoints(const cv::PCA& analysis)
+// {
+// }
+
+/// @brief Eigen vectors are the directions and eigen values are the repartition
+/// @param  
+/// @param pts points from which to get the orientation
+/// @return parrelle point, ortho point, angle
+std::tuple<cv::Point, cv::Point, double> getOrientation(
+    const std::vector<cv::Point> &pts
+)
+{
+    //Construct a buffer used by the pca analysis
+    int sz = static_cast<int>(pts.size());
+    cv::Mat data_pts = cv::Mat(sz, 2, CV_64F);
+    for (int i = 0; i < data_pts.rows; i++)
+    {
+        data_pts.at<double>(i, 0) = pts[i].x;
+        data_pts.at<double>(i, 1) = pts[i].y;
+    }
+    //Perform PCA analysis
+    cv::PCA pca_analysis(data_pts, cv::Mat(), cv::PCA::DATA_AS_ROW);
+    //Store the center of the object
+    cv::Point cntr = cv::Point(static_cast<int>(pca_analysis.mean.at<double>(0, 0)),
+                      static_cast<int>(pca_analysis.mean.at<double>(0, 1)));
+    //Store the eigenvalues and eigenvectors
+    std::vector<cv::Point2d> eigen_vecs(2);
+    std::vector<double> eigen_val(2);
+    for (int i = 0; i < 2; i++)
+    {
+        eigen_vecs[i] = cv::Point2d(pca_analysis.eigenvectors.at<double>(i, 0),
+                                pca_analysis.eigenvectors.at<double>(i, 1));
+        eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+    }
+    // Draw the principal components
+    cv::Point p1 = cntr + 0.02 * cv::Point(static_cast<int>(eigen_vecs[0].x * eigen_val[0]), static_cast<int>(eigen_vecs[0].y * eigen_val[0]));
+    cv::Point p2 = cntr - 0.02 * cv::Point(static_cast<int>(eigen_vecs[1].x * eigen_val[1]), static_cast<int>(eigen_vecs[1].y * eigen_val[1]));
+    double angle = atan2(eigen_vecs[0].y, eigen_vecs[0].x); // orientation in radians
+    return std::tuple(p1, p2, angle);
+}
+
+/// @brief Eigen vectors are the directions and eigen values are the repartition
+/// @param  
+/// @param pts points from which to get the orientation
+/// @param Mat matrix on which printing the vectors
+/// @return parrelle point, ortho point, angle
+std::tuple<cv::Point, cv::Point, double> getOrientation(
+    const std::vector<cv::Point> &pts, cv::Mat &img
+)
 {
     //Construct a buffer used by the pca analysis
     int sz = static_cast<int>(pts.size());
@@ -140,15 +230,17 @@ double getOrientation(const std::vector<cv::Point> &pts, cv::Mat &img)
     drawAxis(img, cntr, p1, cv::Scalar(0, 255, 0), 1);
     drawAxis(img, cntr, p2, cv::Scalar(255, 255, 0), 5);
     double angle = atan2(eigen_vecs[0].y, eigen_vecs[0].x); // orientation in radians
-    return angle;
+    return std::tuple(p1, p2, angle);
 }
 
-void refineSegmentation(
+// TODO extract the main points after finishing the PCA
+std::tuple<cv::Point, cv::Point, double> refineSegmentation(
     cv::Mat& segMask, 
     cv::Mat& dst, 
     double& last_big,
     const cv::Mat& last_mat,
     bool& refresh,
+    const bool& print_vectors = false,
     const int& niters = 3,
     const double& percent = 0.6,
     const cv::Scalar& color = cv::Scalar(255,255,255),
@@ -162,7 +254,8 @@ void refineSegmentation(
     else segMask.copyTo(temp);
 
     // Vectors to store contours and hierarchy information
-    std::vector<std::vector<cv::Point> > contours;
+    std::vector< std::vector<cv::Point> > contours;
+    std::vector<cv::Point> convexPts;
     std::vector<cv::Vec4i> hierarchy;
 
     // Apply morphological dilation to the input mask
@@ -180,7 +273,7 @@ void refineSegmentation(
 
     // If there are no contours, return
     if (contours.size() == 0)
-        return;
+        return std::tuple(cv::Point(), cv::Point(), 0.);
 
     // Iterate through all the top-level contours to find the largest one
     int idx = 0, largestComp = 0, scndLargest = 0;
@@ -200,12 +293,26 @@ void refineSegmentation(
             largestComp = idx;
         }
     }
+
     // CHEAT !! comment this for stability
+    // if (contours.size() != 0)
+    // {
+    //     // use on convexity => no fit
+    //     std::vector< std::vector<cv::Point> > convexList(contours.size(), std::vector<cv::Point>(contours.at(0).size()));
+    //     cv::convexHull(cv::Mat(contours.at(largestComp)), convexList.at(largestComp));
+    //     cv::drawContours(dst, convexList, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    // }
+    // else cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    
+    // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
     cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-    getOrientation(contours[largestComp], dst);
+    // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
     refresh = true;
 
+    // TODO, use cheat system to predict distance only ?
+    // TODO, develop with drawContours and try the fill poly at the end
     // CHEAT !! uncomment for stability
+    // PB WITH HE ORIENTATION
     // if (pos == 0 || pos == 2 || pos == 3)
     // {
     //     // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
@@ -213,9 +320,8 @@ void refineSegmentation(
     //     if (maxArea > (percent * last_big) )
     //     {
     //         // Draw the largest contour on the output Mat
+    //         // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
     //         cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-    //         getOrientation(contours[largestComp], dst);
-    //         // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
     //         if (24000. > maxArea) last_big = maxArea;
     //         refresh = true;
     //     }    
@@ -232,8 +338,8 @@ void refineSegmentation(
     //     if (maxArea > ((percent-0.12) * last_big) )
     //     {
     //         // Draw the largest contour on the output Mat
+    //         // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
     //         cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-    //         getOrientation(contours[largestComp], dst);
     //         // cv::drawContours(dst, contours, scndLargest, color, cv::FILLED, cv::LINE_8, hierarchy);
     //         if (24000. > maxArea) last_big = maxArea;
     //         refresh = true;
@@ -248,8 +354,8 @@ void refineSegmentation(
     // {
     //     if (maxArea < ((0.6+percent) * last_big))
     //     {
+    //         // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
     //         cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-    //         getOrientation(contours[largestComp], dst);
     //         if (20000 > maxArea) last_big = maxArea;
     //         refresh = true;
     //     }
@@ -261,10 +367,13 @@ void refineSegmentation(
     // }
     // else 
     // {
+    //     // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
     //     cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-    //     getOrientation(contours[largestComp], dst);
     //     refresh = true;
     // }
+
+    if (print_vectors) return getOrientation(contours[largestComp], dst);
+    else return getOrientation(contours[largestComp]);
 }
 
 // need to be gray
@@ -1044,6 +1153,7 @@ int main(int argc, char const *argv[])
     cv::namedWindow("pre refined");
 
     cv::Mat tmp, optFlow_prev, optFlow_next, opticaled; //TODO need to init properly
+    // TODO get the vertices and points out of the refineSegment function
     std::vector<cv::Point> ;
     cv::cvtColor(frame, optFlow_prev, cv::COLOR_BGR2GRAY);
     // TODO fix use of run time bool => find better way !!
@@ -1064,25 +1174,25 @@ int main(int argc, char const *argv[])
         // initDenoised(frame, frame, 80, 2, false);
         #endif
 
-        // #ifdef opticaling
-        // const int niters = 2;
-        // cv::cvtColor(frame, tmp, cv::COLOR_BGR2GRAY);
-        // // Apply morphological dilation to the input mask
-        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters*2);
-        // // Apply morphological erosion to the dilated mask
-        // cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
-        // // Apply morphological dilation to the eroded mask
-        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
-        // // cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), 1);
-        // cv::cvtColor(tmp, optFlow_next, cv::COLOR_BGR2GRAY);
-        // opticalFlow(optFlow_prev, optFlow_next, opticaled);
-        // cv::resize(opticaled, opticaled, cv::Size(640, 480), cv::INTER_LINEAR);
-        // // cv::imshow("frame origin", frame);
-        // // cv::imshow("previous", optFlow_prev);
-        // // cv::imshow("next", optFlow_next);
-        // cv::imshow("opticaled", opticaled);
-        // optFlow_prev = optFlow_next; 
-        // #endif
+        #ifdef opticaling
+        const int niters = 2;
+        cv::cvtColor(frame, tmp, cv::COLOR_BGR2GRAY);
+        // Apply morphological dilation to the input mask
+        cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters*2);
+        // Apply morphological erosion to the dilated mask
+        cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
+        // Apply morphological dilation to the eroded mask
+        cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
+        // cv::erode(temp, temp, cv::Mat(), cv::Point(-1, -1), 1);
+        cv::cvtColor(tmp, optFlow_next, cv::COLOR_BGR2GRAY);
+        opticalFlow(optFlow_prev, optFlow_next, opticaled);
+        cv::resize(opticaled, opticaled, cv::Size(640, 480), cv::INTER_LINEAR);
+        // cv::imshow("frame origin", frame);
+        // cv::imshow("previous", optFlow_prev);
+        // cv::imshow("next", optFlow_next);
+        cv::imshow("opticaled", opticaled);
+        optFlow_prev = optFlow_next; 
+        #endif
 
         frame.copyTo(fin_frame);
         // Convert current frame to grayscale
@@ -1141,27 +1251,6 @@ int main(int argc, char const *argv[])
 
         cv::addWeighted(bckg_frame, 1., algo_frame, 1., 0., dframe);
 
-        // #ifdef opticaling
-        // const int niters = 2;
-        // cv::Mat tmp(dframe);
-        // // cv::cvtColor(frame, tmp, cv::COLOR_BGR2GRAY);
-        // // Apply morphological dilation to the input mask
-        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters*2);
-        // // Apply morphological erosion to the dilated mask
-        // cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
-        // // Apply morphological dilation to the eroded mask
-        // cv::dilate(tmp, tmp, cv::Mat(), cv::Point(-1, -1), niters);
-        // cv::erode(tmp, tmp, cv::Mat(), cv::Point(-1, -1), 1);
-        // cv::cvtColor(tmp, optFlow_next, cv::COLOR_BGR2GRAY);
-        // opticalFlow(optFlow_prev, optFlow_next, opticaled);
-        // cv::resize(opticaled, opticaled, cv::Size(640, 480), cv::INTER_LINEAR);
-        // // cv::imshow("frame origin", frame);
-        // // cv::imshow("previous", optFlow_prev);
-        // // cv::imshow("next", optFlow_next);
-        // cv::imshow("opticaled", opticaled);
-        // optFlow_prev = optFlow_next; 
-        // #endif
-
         #ifdef showIntermediate
         // cv::circle(dframe, puncture_check, rad_check, cv::Scalar(0,255,0), 2);
         cv::resize(dframe, rszd_frame, cv::Size(640, 480), cv::INTER_LINEAR);
@@ -1181,6 +1270,7 @@ int main(int argc, char const *argv[])
                 last_big[pos], 
                 last_vector[pos],
                 refresh,
+                true,
                 2, percent,
                 cv::Scalar(0,0,255),
                 pos
@@ -1210,6 +1300,9 @@ int main(int argc, char const *argv[])
         // dosn't work (makes the prog lag)
         // imageBip(dframe, fin_frame, topleftROI, cv::Scalar(0, 255,0));
         // std::cout << cap.get(cv::CAP_PROP_POS_FRAMES) << std::endl;
+
+        // TODO !!
+        // check function pointPolygonTest
 
         if (cap.get(cv::CAP_PROP_POS_FRAMES) < 1190)
         {
