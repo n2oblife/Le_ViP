@@ -233,6 +233,8 @@ std::tuple<cv::Point, cv::Point, double> getOrientation(
     return std::tuple(p1, p2, angle);
 }
 
+/// =========== Continue HERE ===========
+
 // TODO extract the main points after finishing the PCA
 std::tuple<cv::Point, cv::Point, double> refineSegmentation(
     cv::Mat& segMask, 
@@ -373,7 +375,20 @@ std::tuple<cv::Point, cv::Point, double> refineSegmentation(
     // }
 
     if (print_vectors) return getOrientation(contours[largestComp], dst);
+    // TODO also return the contours to use it (refine on one hand and getorientation and distance on the other hand)
     else return getOrientation(contours[largestComp]);
+}
+
+// TODO need to clean everything
+// use overload
+std::vector<double> getDistance(
+    const std::vector<cv::Point>& contours,
+    const std::vector<double>& focal_length,
+    const std::vector<double>& real_distance,
+    std::vector<double>& distance
+)
+{
+
 }
 
 // need to be gray
@@ -852,11 +867,12 @@ cv::Mat initAlphaFrame(
 /// --------------------- Region definition ---------------------
 /// =============================================================
 
+#define comparing
 // #define lumen
 #define predenoising
 #define postdenoising
 #define refining
-#define showIntermediate
+// #define showIntermediate
 // #define checkingBox
 // #define opticaling
 
@@ -895,8 +911,10 @@ int main(int argc, char const *argv[])
     // set the parameters to use (check to init correctly)
     bool use_alpha=false, saving=false, use_background=false, use_algo=false, 
     hide=false, punctured=false, refresh=true, scnd_step=false, post_puncture_stop = false;
+    
     cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, 
     grayAlpha, bckg_frame, algo_frame, refine_frame, stopping_frame;
+    
     const std::string window_name = "frame";
     double percent = 0.825 ;
     cv::VideoWriter writer;
@@ -1143,6 +1161,30 @@ int main(int argc, char const *argv[])
     // TODO check how to put maxFrames in the for loop
     // if (saving)
     //     const int maxFrames = videoMaxFrame(writer);
+
+    #ifdef comparing
+    cv::Mat compared;
+    const std::vector<double> ref_dist, ref_width,  cath_real_width; // TODO function to load
+    std::vector<double> fr_width, cath_dist, focal_length;
+
+    // measure the distance of the known elements or have it in database
+    cv::cvtColor(frame(topleftROI), compared, cv::COLOR_BGR2GRAY);
+    cv::threshold(compared, compared, 250, 255, cv::THRESH_BINARY);
+    cv::imshow("comparing", compared);
+
+    // function to get focal length
+    for (int i=0; i<ref_dist.size(); i++) 
+        focal_length[i] = (fr_width[i] * ref_dist[i]) / ref_width[i];
+    
+    // get the width of objects wanted
+    // TODO need the final masks to have width
+    for (int i=0; i<ref_dist.size(); i++)
+        cath_dist[i] = (cath_real_width[i] * focal_length[i]) / fr_width[i];
+
+    // TODO to have the angle of puncture would need to get 3 points and have a plane
+
+    
+    #endif
 
     if (parser.has("hide")) hide=true;
 

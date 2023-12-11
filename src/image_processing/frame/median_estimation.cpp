@@ -1,14 +1,10 @@
 #include <image_processing/frame/median_estimation.hpp>
-#include <image_processing/utility/device.hpp>
 
-#include <opencv2/core.hpp>
-#include <iostream>
 #include <random>
+#include <opencv2/imgproc.hpp>
 
-// can be an int or a str
-template <typename CAP_INPUT>;
-template <typename MEDIAN>;
 
+template <typename MEDIAN>
 MEDIAN getMedian(std::vector<MEDIAN> elements) {
 	nth_element(
         elements.begin(), 
@@ -52,6 +48,7 @@ cv::Mat compute_median(std::vector<cv::Mat> vec) {
 	return medianImg;
 }
 
+template <typename CAP_INPUT>
 cv::Mat computeMedianFrame(
     const CAP_INPUT& input,
     int& nFrames = 25
@@ -84,18 +81,18 @@ cv::Mat computeMedianFrame(
 }
 
 cv::Mat computeMedianFrame(
-	const cv::VideoCapture cap,
-    int& nFrames = 25
+	cv::VideoCapture& cap,
+    int& nFrames
 )
 {
 	// Set the parameters
-    nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+    nFrames = std::min(nFrames, (int) cap.get(cv::CAP_PROP_FRAME_COUNT));
 	std::vector<cv::Mat> frames;
 	cv::Mat frame;
 
 	// Randomly select nFrames frames
 	std::default_random_engine generator;
-	std::uniform_int_distribution<int> distribution(0, cap.get(cv::CAP_PROP_FRAME_COUNT));
+	std::uniform_int_distribution<int> distribution(0,(int) cap.get(cv::CAP_PROP_FRAME_COUNT));
 
 	for(int i=0; i<nFrames; i++) {
 		int fid = distribution(generator);
@@ -110,6 +107,7 @@ cv::Mat computeMedianFrame(
 	return compute_median(frames);
 }
 
+template <typename CAP_INPUT>
 cv::Mat computeMedianFrame(
     const CAP_INPUT& input,
 	cv::Mat& frame,
@@ -150,19 +148,19 @@ cv::Mat computeMedianFrame(
 }
 
 cv::Mat computeMedianFrame(
-	const cv::VideoCapture& cap,
+	cv::VideoCapture& cap,
 	cv::Mat& frame,
-	const bool& working=true,
-    int& nFrames = 25
+    int& nFrames,
+	const bool& working=true
 )
 {
 	// Set the parameters
-    nFrames = std::min(nFrames, cap.get(cv::CAP_PROP_FRAME_COUNT));
+    nFrames = std::min(nFrames,(int) cap.get(cv::CAP_PROP_FRAME_COUNT));
 	std::vector<cv::Mat> frames;
 
 	// Randomly select nFrames frames
 	std::default_random_engine generator;
-	std::uniform_int_distribution<int> distribution(0, cap.get(cv::CAP_PROP_FRAME_COUNT));
+	std::uniform_int_distribution<int> distribution(0,(int) cap.get(cv::CAP_PROP_FRAME_COUNT));
 
 	for(int i=0; i<nFrames; i++) {
 		int fid = distribution(generator);
