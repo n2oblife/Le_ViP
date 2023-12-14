@@ -3,6 +3,8 @@
 #define IMG_COORRECTION_HPP
 
 #include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+
 
 /// @brief This function changes the rendering using CLAHE algorithm  
 /// of an image by changing the color space from original using Lab 
@@ -11,8 +13,8 @@
 /// @param out_frame Frame in BGR after some improvement
 /// @param isColor Tells if the source image is in BGR 
 void lumenCorrection(
-    cv::Mat& src_frame,
-    cv::Mat& out_frame, 
+    cv::InputArray& src_frame,
+    cv::OutputArray& out_frame, 
     const bool& isColor = true
 );
 
@@ -22,8 +24,8 @@ void lumenCorrection(
 /// @param src_frame Frame to be changed
 /// @param out_frame Frame in BGR after some improvement
 void lumenCorrectionBGR(
-    cv::Mat& src_frame,
-    cv::Mat& out_frame
+    cv::InputArray& src_frame,
+    cv::OutputArray& out_frame
 );
 
 /// @brief This function changes the rendering using CLAHE algorithm  
@@ -32,8 +34,8 @@ void lumenCorrectionBGR(
 /// @param src_frame Frame to be changed
 /// @param out_frame Frame in BGR after some improvement
 void lumenCorrectionLab(
-    cv::Mat& src_frame,
-    cv::Mat& out_frame
+    cv::InputArray& src_frame,
+    cv::OutputArray& out_frame
 );
 
 /// @brief This function changes the rendering using CLAHE algorithm  
@@ -43,8 +45,8 @@ void lumenCorrectionLab(
 /// @param out_frame Vector of frame in BGR after some improvement
 /// @param isColor Tells if the source images are in BGR
 inline void lumenCorrection(
-    std::vector<cv::Mat> src_vector,
-    std::vector<cv::Mat> out_vector,
+    cv::InputArrayOfArrays& src_vector,
+    cv::OutputArrayOfArrays& out_vector,
     const bool& isColor = true
 )
 {
@@ -62,8 +64,8 @@ inline void lumenCorrection(
 /// @param src_frame Vector of frames to be changed
 /// @param out_frame Vetctor of frames in BGR after some improvement
 inline void lumenCorrectionBGR(
-    std::vector<cv::Mat> src_vector,
-    std::vector<cv::Mat> out_vector
+    cv::InputArrayOfArrays& src_vector,
+    cv::OutputArrayOfArrays& out_vector
 )
 {
     for (int i=0; i<src_vector.size(); i++)
@@ -79,8 +81,8 @@ inline void lumenCorrectionBGR(
 /// @param src_frame Vector of frames to be changed
 /// @param out_frame Vector of frames in BGR after some improvement
 inline void lumenCorrectionLab(
-    std::vector<cv::Mat> src_vector,
-    std::vector<cv::Mat> out_vector
+    cv::InputArrayOfArrays& src_vector,
+    cv::OutputArrayOfArrays& out_vector
 )
 {
     for (int i=0; i<src_vector.size(); i++)
@@ -96,8 +98,8 @@ inline void lumenCorrectionLab(
 /// @param threshold Threshold after the gaussian blur
 /// @param niters Number of iterations for erosion and dilatation
 void thresholdedGaussianBlur(
-    cv::Mat& src_frame, 
-    cv::Mat& out_frame,
+    cv::InputArray& src_frame, 
+    cv::OutputArray& out_frame,
     const double& threshold=45.,
     const int& niters=2
 );
@@ -107,8 +109,8 @@ void thresholdedGaussianBlur(
 /// @param out_frame Frame denoised
 /// @param threshold Threshold after the gaussian blur
 void thresholdedGaussianBlurToGray(
-    cv::Mat& src_frame, 
-    cv::Mat& out_frame,
+    cv::InputArray& src_frame, 
+    cv::OutputArray& out_frame,
     const double& threshold = 45.
 );
 
@@ -119,8 +121,8 @@ void thresholdedGaussianBlurToGray(
 /// @param niters Number of iterations for erosion and dilatation
 /// @param turnGray Changes the final color space to gray
 inline void thresholdedGaussianBlur(
-    std::vector<cv::Mat>& src_vector,
-    std::vector<cv::Mat>& out_vector,
+    cv::InputArrayOfArrays& src_vector,
+    cv::OutputArrayOfArrays& out_vector,
     const double& threshold=45.,
     const int& niters=2
 )
@@ -139,8 +141,8 @@ inline void thresholdedGaussianBlur(
 /// @param out_vector Vector of frames denoised
 /// @param threshold Threshold after the gaussian blur
 inline void thresholdedGaussianBlurToGray(
-    std::vector<cv::Mat>& src_vector, 
-    std::vector<cv::Mat>& out_vector,
+    cv::InputArrayOfArrays& src_vector, 
+    cv::OutputArrayOfArrays& out_vector,
     const double& threshold = 45.
 )
 {

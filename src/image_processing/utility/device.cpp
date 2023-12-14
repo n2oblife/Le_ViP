@@ -20,7 +20,7 @@ cv::VideoCapture initVideoCap(const std::string& input)
         cap.open(samples::findFileOrKeep(input));  // Open the specified video file
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return break;
+        return;
     return cap
 }
 
@@ -34,7 +34,7 @@ cv::VideoCapture initVideoCap(const int& input)
         cap.open(input);
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return break;
+        return;
     return cap;
 }
 
@@ -49,7 +49,7 @@ void initVideoCap(const std::string& input, cv::VideoCapture& cap)
         cap.open(samples::findFileOrKeep(input));  // Open the specified video file
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return break;
+        return ;
 }
 
 void initVideoCap(const int& input, cv::VideoCapture& cap)
@@ -61,7 +61,7 @@ void initVideoCap(const int& input, cv::VideoCapture& cap)
         cap.open(input);
 	if(!cap.isOpened())
 		std::cerr << "Error opening video file\n";
-        return break;
+        return ;
 }
 
 
@@ -93,14 +93,14 @@ cv::VideoWriter initVideoWriter(
     // check if we succeeded
     if (!writer.isOpened()) {
         std::cerr << "Could not open the output video file for write\n";
-        return break;
+        return ;
     }
     return writer;
 }
 
 void videoMaxFrame(
     const double& fps, 
-    const size& frameSize, 
+    const cv::Size& frameSize, 
     const int& frameRate,
     int& maxFrame
 )

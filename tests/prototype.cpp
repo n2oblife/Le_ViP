@@ -1,25 +1,8 @@
-///// TODO !!
-
-// simple improvement : think about unsigned int, change to char
-
-// Good pratices for after : overload, many different functions, less default variables as possible
-// less branches with booleans, create real classes for the elements, more smart/shared pointers
-
-// look at event handling
-// write default values in hpp (if there are)
-
-// use inline function for small functions (functions are substitued not called) ! especially to overload and do default values like :
-// // square.h
-// void print_square(int n, char fill); // only function to write fully in the .cpp
-// inline void print_square_with_side(int n) { print_square(n, '+'); }
-// inline void print_square_with_fill(char fill) { print_square(10, fill); }
-// inline void print_default_square() { print_square(10, '+'); }
-
-
-#include <string>
+#include <string> // supress
 #include <iostream>
 #include <random>
 #include <map>
+// use arrays insteasd of vectors
 
 #include "../include/image_processing/utility/constante.hpp"
 
@@ -40,6 +23,8 @@
 // multi thread within function and synced ?
 // check multithreading for android later
 // (we will have to discuss the archi of app, if it will get the 4 cap or just 1)
+
+// create a class for the parallele loop body with init before and then applying things
 
 void lumenCorrection(
     cv::Mat& src_frame,
@@ -233,7 +218,6 @@ std::tuple<cv::Point, cv::Point, double> getOrientation(
     return std::tuple(p1, p2, angle);
 }
 
-/// =========== Continue HERE ===========
 
 // TODO extract the main points after finishing the PCA
 std::tuple<cv::Point, cv::Point, double> refineSegmentation(
@@ -381,15 +365,15 @@ std::tuple<cv::Point, cv::Point, double> refineSegmentation(
 
 // TODO need to clean everything
 // use overload
-std::vector<double> getDistance(
-    const std::vector<cv::Point>& contours,
-    const std::vector<double>& focal_length,
-    const std::vector<double>& real_distance,
-    std::vector<double>& distance
-)
-{
+// std::vector<double> getDistance(
+//     const std::vector<cv::Point>& contours,
+//     const std::vector<double>& focal_length,
+//     const std::vector<double>& real_distance,
+//     std::vector<double>& distance
+// )
+// {
 
-}
+// }
 
 // need to be gray
 void drawHoughLines(
@@ -498,6 +482,8 @@ void contouring(
 //     cv::drawContours(out_frame, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
 
 // }
+
+// ============== CONTINUE HERE ==============
 
 void splitTo4(
     const cv::Mat& src_frame,
@@ -657,7 +643,7 @@ int videoMaxFrame(
     const int bitrate = cap.get(cv::CAP_PROP_BITRATE);
     // 1Gbytes = 1073741824bits
     // TODO check if cast is ok
-    return std::div( 2147483648, bitrate).quot * fps; // check if pb of overflow
+    return std::div( (int) 2147483648, bitrate).quot * fps; // check if pb of overflow
 }
 
 int videoMaxFrame(
@@ -674,7 +660,7 @@ int videoMaxFrame(
     const int bitrate = writer.get(cv::CAP_PROP_BITRATE);
     // 1Gbytes = 1073741824bits
     // TODO check if cast is ok
-    return std::div(2147483648, bitrate).quot * fps;
+    return std::div((int) 2147483648, bitrate).quot * fps;
 }
 
 /// -------------------------
@@ -911,7 +897,13 @@ int main(int argc, char const *argv[])
     // set the parameters to use (check to init correctly)
     bool use_alpha=false, saving=false, use_background=false, use_algo=false, 
     hide=false, punctured=false, refresh=true, scnd_step=false, post_puncture_stop = false;
-    
+    // always consider there is an alpha in the for body and init with blanck if it is not an argument
+    // keep saving ...
+    // keep background ... 
+    // algo can be identity or null dpending on intit and implementation
+    // no imshow after so no hide
+    // keep punctured, change it with a operation step with enum static (might not be a bool)
+    // keep refresh, might have other use
     cv::Mat frame, fin_frame, dframe, rszd_frame, medianFrame, alpha, 
     grayAlpha, bckg_frame, algo_frame, refine_frame, stopping_frame;
     

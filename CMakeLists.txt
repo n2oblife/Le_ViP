@@ -19,8 +19,8 @@ endif()
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Optionally set things like CMAKE_CXX_STANDARD, CMAKE_POSITION_INDEPENDENT_CODE here
-  set(CMAKE_CXX_STANDARD 17)
-  # set(CMAKE_VERBOSE_MAKEFILE true)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_VERBOSE_MAKEFILE true)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
   set(CMAKE_CXX_EXTENSIONS OFF)
@@ -47,6 +47,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   else()
     message(STATUS "Doxygen not found, not building docs")
   endif()
+
+  # Loooking for multi threading 
+  find_package(OpenMP)
+  if(OpenMP_FOUND)
+    message(STATUS "OpenMP found, multithreading enabled")
+  else()
+  message(STATUS "OpenMP not found, multithreading disabled")
+  endif()
+
 
   # Arguments for using OpenCV
   if (WIN32)
