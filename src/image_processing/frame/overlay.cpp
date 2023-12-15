@@ -41,12 +41,13 @@
 //     addWeighted(alpha, foreground, beta, background, gamma, outImage);
 // }
 
-void colorBlending(
-    const cv::Mat& background,
-    const cv::Mat& alpha, 
-    cv::Mat& outImage, 
-    const auto& BGR = clrs::RED,
-    const double& cover = 0.25
+template <class M>
+void vip::colorBlending(
+    const M& background,
+    const M &alpha, 
+    M &outImage, 
+    const cv::Scalar &BGR = clrs::RED,
+    const double &cover = 0.25
 )
 {
     // Check if needs to convert the images to 3 channels of 32 bit float

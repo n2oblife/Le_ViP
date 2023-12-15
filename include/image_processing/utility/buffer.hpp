@@ -10,18 +10,20 @@ namespace vip
     /// along algorithm and enable work on different thread in futur than 
     /// @tparam M Represents the OpenCV's Mat class or any similar
     template <class M = cv::Mat>
-    class Buffer
+    class Buffer // think about a generic array class with heredity for buffers
     {
+
         private :
-            const size_t _buffSize; 
-            std::array<M, buffSize> _frameBuffer;
-            M* _framePtr;
+            static const size_t _bufferSize; 
+            std::array<M, _bufferSize> _frameBuffer;
+            M *_framePtr;
 
         public:
-            Buffer(size_t);
-            void operator=(std::array<M, buffSize>);
+            Buffer(const size_t bufferSize);
+            size_t size() const; // needed ? faster with direct access ?
+            Buffer &operator=(const int *otherBuffer);
             M at(size_t &idx) const;
-            M operator[](size_t &idx) const;
+            M operator[](size_t &idx) const; // return the value itself for less memory usage
             bool operator==(const Buffer &buff1, const Buffer &buff2) const;
             ~Buffer();
     };

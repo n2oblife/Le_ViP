@@ -1,122 +1,120 @@
 #include <image_processing/frame/image_correction.hpp>
 
-namespace vip
+// TODO remove the temp frames, swap vectors with arrays
+
+
+template <class M> 
+void vip::lumenCorrection(
+    M &src_frame,
+    M &out_frame, 
+    const bool& isColor = true
+)
 {
-    template <class M = cv::Mat> 
-    void lumenCorrection(
-        M &src_frame,
-        M &out_frame, 
-        const bool& isColor = true
-    )
-    {
-        // Init variables
-        M tmp_frame;
-        int f_transf, l_transf;
-        
-        // TODO check other cases
-        if (isColor)
-        {
-            f_transf = cv::COLOR_BGR2Lab, l_transf = cv::COLOR_Lab2BGR;
-            // READ RGB color image and convert it to Lab
-            cv::cvtColor(src_frame, tmp_frame, f_transf);
-        }
+    // Init variables
+    M tmp_frame;
+    int f_transf, l_transf;
     
-        // Extract the L channel
-        std::array<3, M> lab_planes;
-        cv::split(tmp_frame, lab_planes);  // now we have the L image in lab_planes[0]
-
-        // apply the CLAHE algorithm to the L channel
-        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-        clahe->setClipLimit(4);
-        M dst;
-        clahe->apply(lab_planes[0], tmp_frame);
-
-        // Merge the the color planes back into an Lab image
-        tmp_frame.copyTo(lab_planes[0]);
-        cv::merge(lab_planes, tmp_frame);
-        cv::cvtColor(tmp_frame, out_frame, l_transf);
-    }
-
-
-    void lumenCorrectionBGR(
-        cv::InputOutputArray frame,
-        cv::InputArray& src_frame,
-        cv::OutputArray& out_frame
-    )
+    // TODO check other cases
+    if (isColor)
     {
-        // Init variables
-        cv::InputOutputArray tmp_frame(src_frame.getMat());
-
+        f_transf = cv::COLOR_BGR2Lab, l_transf = cv::COLOR_Lab2BGR;
         // READ RGB color image and convert it to Lab
-        cv::cvtColor(src_frame, tmp_frame, cv::COLOR_BGR2Lab);
-
-        // Extract the L channel
-        std::vector<cv::Mat> lab_planes(3);
-        cv::split(tmp_frame, lab_planes);  // now we have the L image in lab_planes[0]
-
-        // apply the CLAHE algorithm to the L channel
-        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-        clahe->setClipLimit(4);
-        clahe->apply(lab_planes[0], tmp_frame);
-
-        // Merge the the color planes back into an Lab image
-        tmp_frame.copyTo(lab_planes[0]);
-        cv::merge(lab_planes, tmp_frame);
-        cv::cvtColor(tmp_frame, out_frame, cv::COLOR_Lab2BGR);
+        cv::cvtColor(src_frame, tmp_frame, f_transf);
     }
 
+    // Extract the L channel
+    std::array<3, M> lab_planes;
+    cv::split(tmp_frame, lab_planes);  // now we have the L image in lab_planes[0]
 
-    void lumenCorrectionLab(
-        cv::Mat& src_frame,
-        cv::Mat& out_frame
-    )
-    {
-        // Init variables
-        cv::Mat tmp_frame;
+    // apply the CLAHE algorithm to the L channel
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+    clahe->setClipLimit(4);
+    M dst;
+    clahe->apply(lab_planes[0], tmp_frame);
 
-        // Extract the L channel
-        std::vector<cv::Mat> lab_planes(3);
-        cv::split(tmp_frame, lab_planes);  // now we have the L image in lab_planes[0]
+    // Merge the the color planes back into an Lab image
+    tmp_frame.copyTo(lab_planes[0]);
+    cv::merge(lab_planes, tmp_frame);
+    cv::cvtColor(tmp_frame, out_frame, l_transf);
+}
 
-        // apply the CLAHE algorithm to the L channel
-        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-        clahe->setClipLimit(4);
-        clahe->apply(lab_planes[0], tmp_frame);
+template <class M>
+void vip::lumenCorrectionBGR(
+    M &src_frame,
+    M &out_frame
+)
+{
+    // READ RGB color image and convert it to Lab
+    cv::cvtColor(src_frame, out_frame, cv::COLOR_BGR2Lab);
 
-        // Merge the the color planes back into an Lab image
-        tmp_frame.copyTo(lab_planes[0]);
-        cv::merge(lab_planes, tmp_frame);
-        cv::cvtColor(tmp_frame, out_frame, cv::COLOR_Lab2BGR);
-    }
+    // Extract the L channel
+    std::array<M, 3> lab_planes;
+    cv::split(out_frame, lab_planes);  // now we have the L image in lab_planes[0]
 
+    // apply the CLAHE algorithm to the L channel
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+    clahe->setClipLimit(4);
+    clahe->apply(lab_planes[0], out_frame);
 
-    void thresholdedGaussianBlur(
-        cv::Mat& src_frame, 
-        cv::Mat& out_frame,
-        const double& threshold=45.,
-        const int& niters=2
-    )
-    {
-        cv::Mat tmp(src_frame);
-        cv::GaussianBlur(tmp, tmp, cv::Size(5,5),0 , 2);
-        cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
-        cv::erode(tmp,tmp, cv::Mat(), cv::Point(-1,-1), niters);
-        cv::dilate(tmp, out_frame, cv::Mat(), cv::Point(-1, -1), niters);
-    }
+    // Merge the the color planes back into an Lab image
+    out_frame.copyTo(lab_planes[0]);
+    cv::merge(lab_planes, out_frame);
+    cv::cvtColor(out_frame, out_frame, cv::COLOR_Lab2BGR);
+}
 
-    void thresholdedGaussianBlurToGray(
-        cv::Mat& src_frame, 
-        cv::Mat& out_frame,
-        const double& threshold = 45.
-    )
-    {
-        cv::Mat tmp(src_frame);
-        cv::GaussianBlur(tmp, tmp, cv::Size(5,5),0 , 2);
-        cv::threshold(tmp, tmp, threshold, 255, cv::THRESH_BINARY);
-        cv::erode(tmp,tmp, cv::Mat(), cv::Point(-1,-1), 2);
-        cv::dilate(tmp, out_frame, cv::Mat(), cv::Point(-1, -1), 2);
-        cv::cvtColor(tmp, tmp, cv::COLOR_BGR2GRAY);
-    }
+template <class M>
+void vip::lumenCorrectionLab(
+    M &src_frame,
+    M &out_frame
+)
+{
+    // Initilize the variables 
+    src_frame.copyTo(out_frame);
 
-} // namespace vip
+    // Extract the L channel
+    std::array<M, 3> lab_planes;
+    cv::split(src_frame, lab_planes);  // now we have the L image in lab_planes[0]
+
+    // apply the CLAHE algorithm to the L channel
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+    clahe->setClipLimit(4);
+    clahe->apply(lab_planes[0], src_frame);
+
+    // Merge the the color planes back into an Lab image
+    src_frame.copyTo(lab_planes[0]);
+    cv::merge(lab_planes, src_frame);
+    cv::cvtColor(src_frame, out_frame, cv::COLOR_Lab2BGR);
+}
+
+template <class M>
+void vip::thresholdedGaussianBlur(
+    M &src_frame, 
+    M &out_frame,
+    const double& threshold=45.,
+    const int& niters=2
+)
+{
+    // Initialize 
+    src_frame.copyTo(out_frame);
+    cv::GaussianBlur(out_frame, out_frame, cv::Size(5,5),0 , 2);
+    cv::threshold(out_frame, out_frame, threshold, 255, cv::THRESH_BINARY);
+    cv::erode(out_frame,out_frame, cv::Mat(), cv::Point(-1,-1), niters);
+    cv::dilate(out_frame, out_frame, cv::Mat(), cv::Point(-1, -1), niters);
+}
+
+template <class M>
+void vip::thresholdedGaussianBlurToGray(
+    M &src_frame, 
+    M &out_frame,
+    const double& threshold = 45.
+)
+{
+    // Initialize the values
+    src_frame.copyTo(out_frame);
+    cv::GaussianBlur(out_frame, out_frame, cv::Size(5,5),0 , 2);
+    cv::threshold(out_frame, out_frame, threshold, 255, cv::THRESH_BINARY);
+    cv::erode(out_frame,out_frame, cv::Mat(), cv::Point(-1,-1), 2);
+    cv::dilate(out_frame, out_frame, cv::Mat(), cv::Point(-1, -1), 2);
+    cv::cvtColor(out_frame, out_frame, cv::COLOR_BGR2GRAY);
+}
 
