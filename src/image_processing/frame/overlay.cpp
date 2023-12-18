@@ -53,11 +53,11 @@ void vip::colorBlending(
     // Check if needs to convert the images to 3 channels of 32 bit float
     // foreground.convertTo(foreground, CV_32FC3);
     // background.convertTo(background, CV_32FC3);
-    cv:Size matSize= alpha.size();
-    cv::Mat foreground(matSize[0], matSize[1], CV_8UC3, BGR);
+    const cv:Size matSize= alpha.size();
+    const cv::Mat foreground(matSize[0], matSize[1], CV_8UC3, BGR);
 
     // Find the total number of pixels in the images (assuming 2D matrices)
-    int numberOfPixels = foreground.rows * foreground.cols * foreground.channels();
+    const int numberOfPixels = foreground.rows * foreground.cols * foreground.channels();
 
     // Get floating point pointers to the data matrices
     float* fptr = reinterpret_cast<float*>(foreground.data);
@@ -66,18 +66,21 @@ void vip::colorBlending(
     float* outImagePtr = reinterpret_cast<float*>(outImage.data);
 
     // Loop over all pixels ONCE (can be parallelized)
-    for (int i = 0; i < numberOfPixels; i++, outImagePtr++, fptr++, aptr++, bptr++)
+    for (int &i = 0; i < numberOfPixels; i++, outImagePtr++, fptr++, aptr++, bptr++)
     {
         // Perform alpha blending equation: result = (foreground * cover*alpha) + (background * (1-cover - alpha))
         *outImagePtr = (*fptr) * cover*(*aptr) + (*bptr) * (1 - cover - *aptr);
     }
 }
 
-void alphaBlending(
-    const cv::Mat& foreground, 
-    const cv::Mat& background, 
-    const cv::Mat& alpha, 
-    cv::Mat& outImage
+
+
+template <class M>
+void vip::alphaBlending(
+    const M &foreground, 
+    const M &background, 
+    const M &alpha, 
+    M &outImage
 )
 {
     // Check if needs to convert the images to 3 channels of 32 bit float
@@ -85,7 +88,7 @@ void alphaBlending(
     // background.convertTo(background, CV_32FC3);
     
     // Find the total number of pixels in the images (assuming 2D matrices)
-    int numberOfPixels = foreground.rows * foreground.cols * foreground.channels();
+    const int numberOfPixels = foreground.rows * foreground.cols * foreground.channels();
 
     // Get floating point pointers to the data matrices
     float* fptr = reinterpret_cast<float*>(foreground.data);
@@ -94,14 +97,14 @@ void alphaBlending(
     float* outImagePtr = reinterpret_cast<float*>(outImage.data);
 
     // Loop over all pixels ONCE (can be parallelized)
-    for (int i = 0; i < numberOfPixels; i++, outImagePtr++, fptr++, aptr++, bptr++)
+    for (int &i = 0; i < numberOfPixels; i++, outImagePtr++, fptr++, aptr++, bptr++)
     {
         // Perform alpha blending equation: result = (foreground * alpha) + (background * (1 - alpha))
         *outImagePtr = (*fptr) * (*aptr) + (*bptr) * (1 - *aptr);
     }
 }
 
-cv::Mat initAlphaFrame(const std::string& alphaStr)
+cv::Mat initAlphaFrame(const char &alphaStr)
 {
     // Read the alpha frame
     auto alpha = cv::imread(alphaStr);
@@ -111,7 +114,7 @@ cv::Mat initAlphaFrame(const std::string& alphaStr)
 }
 
 cv::Mat initAlphaFrame(
-    const std::string& alphaStr, const cv::Size& frameResize
+    const char &alphaStr, const cv::Size& frameResize
 )
 {
     // Read the alpha frame
