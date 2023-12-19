@@ -41,7 +41,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(CTest)
 
   # Docs only available if this is the main app
-  find_package(Doxygen)
+  # Arguments for using Doxygen
+  if (WIN32)
+    set(DOXYGEN_DIR "C:/Program Files/doxygen/bin")
+  endif(WIN32)
+  if (UNIX)
+
+  endif(UNIX)
+  find_package(Doxygen 
+              OPTIONAL_COMPONENTS dot mscgen dia)  
   if(Doxygen_FOUND)
     add_subdirectory(docs)
   else()
@@ -49,13 +57,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   endif()
 
   # Loooking for multi threading 
-  find_package(OpenMP)
-  if(OpenMP_FOUND)
-    message(STATUS "OpenMP found, multithreading enabled")
-  else()
-  message(STATUS "OpenMP not found, multithreading disabled")
-  endif()
-
+  find_package(Threads REQUIRED)
+  find_package(OpenMP REQUIRED)
 
   # Arguments for using OpenCV
   if (WIN32)
@@ -84,12 +87,14 @@ include(FetchContent)
 find_package(Boost REQUIRED)
 # Adds Boost::boost
 
+
 # Formatting library
 FetchContent_Declare(
   fmtlib
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG 5.3.0)
+  GIT_TAG master)
 FetchContent_MakeAvailable(fmtlib)
+# FetchContent_MakeAvailable(fmt)
 # Adds fmt::fmt
 
 # The compiled library code is here

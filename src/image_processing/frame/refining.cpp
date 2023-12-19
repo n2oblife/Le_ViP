@@ -1,47 +1,13 @@
+#include <image_processing/frame/refining.hpp>
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-
-/// @brief Morpholocial transformations adapted for segmentation refinement
-/// @param src_frame Segmentation mask to be morpholised
-/// @param niters Number of iterations for the operations
-inline void refineMorphologics(
-    cv::Mat& src_frame,
-    const int& niters = 3
-)
-{
-    // Apply morphological dilation to the input mask
-    cv::dilate(src_frame, src_frame, cv::Mat(), cv::Point(-1, -1), niters*2);
-    // Apply morphological erosion to the dilated mask
-    cv::erode(src_frame, src_frame, cv::Mat(), cv::Point(-1, -1), niters);
-    // Apply morphological dilation to the eroded mask
-    cv::dilate(src_frame, src_frame, cv::Mat(), cv::Point(-1, -1), niters);
-    cv::erode(src_frame, src_frame, cv::Mat(), cv::Point(-1, -1), 1); 
-}
-
-/// @brief Morpholocial transformations adapted for segmentation refinement
-/// @param src_vector Vector of segmentation masks to be morpholised
-/// @param niters Number of iterations for the operations
-inline void refineMorphologics(
-    std::vector<cv::Mat>& src_vector,
-    const int& niters = 3
-)
-{
-    for (int i=0; src_vector.size(); i++)
-        refineMorphologics(src_vector[i], niters);
-}
 
 // TODO write a version which handles both size clipping with two percents 
 
 
-/// @brief Computes the largest contour from a black and white frame in
-/// a gray colorspace
-/// @param seg_mask Segmentation mask to be contoured
-/// @param largestContour Vector of the contour's points
-/// @param niters Number of iterations used for morphological transformation
+template <class M, size_t N>
 void getLargestContour(
-    cv::Mat& seg_mask,
-    std::vector<cv::Point> largest_contour,
+    M &seg_mask,
+    std::array<cv::Point, N> &largest_contour,
     const int& niters = 3
 )
 {
@@ -83,120 +49,48 @@ void getLargestContour(
     largest_contour = contours[largestComp];
 }
 
-/// @brief Computes the largest contour from a vectors of black and white frames in
-/// a gray colorspace
-/// @param src_vector Vector of segmentation masks to be contoured
-/// @param largestContour_vector Vector of vectors of the contours' points
-/// @param niters Number of iterations used for morphological transformation
-inline void getLargestContour(
-    std::vector<cv::Mat>& src_vector,
-    std::vector<std::vector<cv::Point>>& largest_contour_vector,
-    const int& niters = 3
-)
-{
-    for (int i=0; i<src_vector.size(); i++)
-        getLargestContour(
-            src_vector[i],
-            largest_contour_vector[i],
-            niters
-        );
-}
 
-/// @brief Draw the largest contour on the image.
-/// @param seg_mask Segmentation image with multiple elements
-/// @param out_frame Frame on which the largest element only will be draw
-/// @param largestContour Return the largest element point
-/// @param color Color to draw the largest element
-/// @param niters Number of iterations used for morphological transformation
-inline void drawLargestContour(
-    cv::Mat& seg_mask,
-    cv::Mat& out_frame,
-    std::vector<cv::Point>& largest_contour,
-    const cv::Scalar& color = cv::Scalar(255,255,255),
-    const int& niters = 3
-)
-{
-    getLargestContour(
-        seg_mask, largest_contour, niters
-    );
-    cv::drawContours(out_frame, std::vector(largest_contour),0, color, cv::FILLED, cv::LINE_8);
-}
-
-/// @brief Draw the largest contour on the vecotr of images.
-/// @param src_vector Vector of segmentation images with multiple elements
-/// @param out_vector Vector of frames on which the largest element only will be draw
-/// @param largestContour_vector Return a vector of the largest element point
-/// @param color Color to draw the largest element
-/// @param niters Number of iterations used for morphological transformation
-inline void drawLargestContour(
-    std::vector<cv::Mat>& src_vector,
-    std::vector<cv::Mat>& out_vector,
-    std::vector<std::vector<cv::Point>>& largestContour_vector,
-    const cv::Scalar& color = cv::Scalar(255,255,255),
-    const int& niters = 3
-)
-{
-    for (int i=0; i<src_vector.size(); i++)
-        drawLargestContour(
-            src_vector[i], out_vector[i], largestContour_vector[i], color, niters
-        );
-}
-
-/// @brief Draw the largest contour on the vecotr of images.
-/// @param src_vector Vector of segmentation images with multiple elements
-/// @param out_vector Vector of frames on which the largest element only will be draw
-/// @param largestContour_vector Return a vector of the largest element point
-/// @param color Vector of colors to draw the largest element
-/// @param niters Number of iterations used for morphological transformation
-inline void drawLargestContour(
-    std::vector<cv::Mat>& src_vector,
-    std::vector<cv::Mat>& out_vector,
-    std::vector<std::vector<cv::Point>>& largest_contour_vector,
-    const std::vector<cv::Scalar>& color_vector,
-    const int& niters = 3
-)
-{
-    for (int i=0; i<src_vector.size(); i++)
-        drawLargestContour(
-            src_vector[i], out_vector[i], largest_contour_vector[i], color_vector[i], niters
-        );
-}
-
+template <class M, size_t NC, size_t NP>
 void drawLargestContourCheating(
-    cv::Mat& seg_mask,
-    cv::Mat& out_frame,
-    std::vector<cv::Point>& largest_contour,
-    double& last_big,
-    const double& min_threshold,
-    const double& max_threshold,
-    const cv::Scalar& color = cv::Scalar(255,255,255),
-    const int& niters = 3   
+    M &seg_mask,
+    M &out_frame,
+    std::array<cv::Point, NC> &largest_contour,
+    double &last_big,
+    const double &min_threshold,
+    const double &max_threshold,
+    const cv::Scalar &color = cv::Scalar(255,255,255),
+    const int &niters = 3   
 )
 {
     getLargestContour(seg_mask, largest_contour, niters);
 
-        // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-        // use a vector for last_big
-        if (maxArea > (percent * last_big) )
-        {
-            // Draw the largest contour on the output Mat
-            // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
-            cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
-            if (24000. > maxArea) last_big = maxArea;
-            refresh = true;
-        }    
-        else 
-        {
-            last_mat.copyTo(dst);
-            refresh = false;
-        }
+    // cv::drawContours(dst, contours, largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+    // use a vector for last_big
+    if (maxArea > (max_threshold * last_big) )
+    {
+        // Draw the largest contour on the output Mat
+        // cv::fillPoly(dst, contours.at(largestComp), color, cv::LINE_8);
+        cv::drawContours(dst, std::array(), largestComp, color, cv::FILLED, cv::LINE_8, hierarchy);
+        if (24000. > maxArea) last_big = maxArea;
+        refresh = true;
+    }    
+    elif (maxArea < (min_threshold * last_big))
+    {
+        // Draw largest contour 
+    }
+    else 
+    {
+        last_mat.copyTo(dst);
+        refresh = false;
+    }
 
     cv::drawContours(out_frame, std::vector(largest_contour),0, color, cv::FILLED, cv::LINE_8);
 }
 
+template <class M, size_t NC, size_t NP>
 void drawLargestContourCheating(
-    cv::Mat& printing_frame,
-    std::vector<cv::Point> largest_contour,
+    M &printing_frame,
+    std::array<cv::Point, NC> largest_contour,
     const double& min_threshold,
     const double& max_threshold,
     const cv::Scalar& color = cv::Scalar(255,255,255)

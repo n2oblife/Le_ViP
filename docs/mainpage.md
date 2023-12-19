@@ -1,11 +1,7 @@
 # Documentation for Modern Library {#mainpage}
 
-This is the documentation for my simple example library.
+This is the documentation for my simple example application for Live Video Processing using OpenCV.
 
-It is good documentation because:
+It uses the vip namespace where functions are declared to be as efficient as possible.
 
-1. It exists.
-2. I wrote it.
-3. Everything is documented (pretty easy since there's only one function)
-
-The single provided function is `::accumulate_vector`.
+This is a work in progress for a personnal project.
